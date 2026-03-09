@@ -1,0 +1,38 @@
+# --- Dependencies & Runtimes ---
+node_modules/
+*/node_modules/
+.bun/
+bun.lock
+bun.lockb
+
+# --- Build Outputs ---
+# Matches 'dist', 'build', or 'out' folders across all apps/packages
+dist/
+build/
+out/
+.next/
+.vite/
+
+# --- Artifacts & Binaries ---
+# Your project has several non-text files in /docs
+*.pdf
+*.docx
+*.png
+*.svg
+*.ico
+*.jpg
+*.jpeg
+
+# --- Environment & Secrets ---
+.env
+.env.*
+.DS_Store
+
+# --- Package Specifics ---
+# Ignore the auto-generated TypeScript info if using project references
+*.tsbuildinfo
+
+# formatting large auto-generated documentation files
+docs/ai/
+docs/
+*.md
