@@ -15,7 +15,10 @@
     "apps/backend": {
       "name": "@codex/backend",
       "dependencies": {
+        "@codex/graph-client": "workspace:*",
+        "@codex/shared": "workspace:*",
         "elysia": "^1.4.27",
+        "neo4j-driver": "^6.0.1",
       },
       "devDependencies": {
         "@types/bun": "latest",

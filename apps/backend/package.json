@@ -1,18 +1,21 @@
 {
-  "name": "@codex/backend",
-  "scripts": {
-    "dev": "bun run --watch src/index.ts"
-  },
-  "module": "src/index.ts",
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "elysia": "^1.4.27"
-  }
+	"name": "@codex/backend",
+	"scripts": {
+		"dev": "bun run --watch src/index.ts"
+	},
+	"module": "src/index.ts",
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"elysia": "^1.4.27",
+		"neo4j-driver": "^6.0.1",
+		"@codex/graph-client": "workspace:*",
+		"@codex/shared": "workspace:*"
+	}
 }

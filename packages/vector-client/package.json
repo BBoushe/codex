@@ -1,18 +1,21 @@
 {
-  "name": "@codex/vector-client",
-  "scripts": {
-    "dev": "bun run --watch src/index.ts"
-  },
-  "module": "src/index.ts",
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "chromadb": "^3.3.1"
-  }
+	"name": "@codex/vector-client",
+	"scripts": {
+		"dev": "bun run --watch src/index.ts"
+	},
+	"module": "src/index.ts",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"chromadb": "^3.3.1"
+	}
 }
