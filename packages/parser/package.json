@@ -14,5 +14,10 @@
 	},
 	"peerDependencies": {
 		"typescript": "^5"
+	},
+	"dependencies": {
+		"@codex/shared": "workspace:*",
+		"ignore": "^7.0.5",
+		"web-tree-sitter": "^0.26.6"
 	}
 }
