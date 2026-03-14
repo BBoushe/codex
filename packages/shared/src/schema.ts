@@ -51,8 +51,8 @@ export enum EdgeType {
 	// React specific
 	RENDERS = "RENDERS", // Component -> Component (JSX usage)
 	USES_HOOK = "USES_HOOK", // Component -> Hook
-	ACCEPTPS_PROP = "ACCEPTS_PROP", // Component -> Prop (prop definition)
-	PASSES_PROP = "PASSES_PROP", // Componetn -> Component (prop flow i.e. drilling)
+	ACCEPTS_PROP = "ACCEPTS_PROP", // Component -> Prop (prop definition)
+	PASSES_PROP = "PASSES_PROP", // Component -> Component (prop flow i.e. drilling)
 
 	// Social
 	COMMITTED = "COMMITTED", // Developer -> Commit
