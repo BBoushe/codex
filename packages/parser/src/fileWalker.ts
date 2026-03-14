@@ -1,5 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, extname } from "node:path";
+import fs from "node:fs";
+import readLine from "node:readline";
 import ignore, { type Ignore } from "ignore";
 import { isSupportedExtension } from "./languageService";
 
@@ -27,6 +29,10 @@ export interface WalkResult {
 	directoriesVisited: number;
 	/** Total number of files skipped (wrong extensions or ignored) */
 	filesSkipped: number;
+	/** Total number of lines across all discovered files (for reporting) */
+	linesOfCode: number;
+	/** Total number of characters across all discovered files (for reporting) */
+	totalCharacters: number;
 	/** Duration of the walk in milliseconds */
 	durationMs: number;
 }
@@ -95,6 +101,28 @@ async function loadGitignore(dir: string, ig: Ignore): Promise<void> {
 	}
 }
 
+async function getFileStats(
+	filePath: string,
+): Promise<{ lines: number; characters: number }> {
+	let lineCount = 0;
+	let charCount = 0;
+	let wordCount = 0;
+
+	const fileStream = fs.createReadStream(filePath, { encoding: "utf-8" });
+	const rl = readLine.createInterface({
+		input: fileStream,
+		crlfDelay: Infinity,
+	});
+
+	for await (const line of rl) {
+		lineCount++;
+		charCount += line.length + 1; // +1 for the newline character
+		wordCount += line.trim().split(/\s+/).filter(Boolean).length;
+	}
+
+	return { lines: lineCount, characters: charCount };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,6 +143,7 @@ export async function walkDirectory(
 	const files: SourceFile[] = [];
 	let directoriesVisited = 0;
 	let filesSkipped = 0;
+	let fileStats = { lines: 0, characters: 0 };
 
 	/** Recursive inner walk.
 	 * @param dir Absolute path of the directory to walk
@@ -157,6 +186,10 @@ export async function walkDirectory(
 					continue;
 				}
 
+				const stats = await getFileStats(absPath);
+				fileStats.lines += stats.lines;
+				fileStats.characters += stats.characters;
+
 				files.push({
 					absolutePath: absPath,
 					relativePath: relPath,
@@ -173,6 +206,8 @@ export async function walkDirectory(
 		files,
 		directoriesVisited,
 		filesSkipped,
+		linesOfCode: fileStats.lines,
+		totalCharacters: fileStats.characters,
 		durationMs: Date.now() - start,
 	};
 }

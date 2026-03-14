@@ -10,8 +10,12 @@ async function main() {
 
 	console.log(`Directories visited: ${result.directoriesVisited}`);
 	console.log(`Files found: ${result.files.length}`);
-	console.log(`Files skipped: ${result.filesSkipped}`);
-	console.log(`Duration: ${result.durationMs}ms\n`);
+	console.log(`Files skipped: ${result.filesSkipped}\n`);
+	console.log(`Lines of code: ${result.linesOfCode}`);
+	console.log(`Total characters: ${result.totalCharacters}\n`);
+	console.log(`Token estimation: ${Math.floor(result.totalCharacters / 4)}\n`);
+	console.log("-------------------------");
+	console.log(`Duration: ${result.durationMs}ms\n\n`);
 
 	console.log("Files:");
 	for (const f of result.files) {
