@@ -1,4 +1,4 @@
-import { walkDirectory } from "./fileWalker";
+import { walkDirectory } from "../fileWalker";
 import { resolve } from "node:path";
 
 async function main() {

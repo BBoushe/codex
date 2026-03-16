@@ -244,7 +244,7 @@ export type CodexNode =
  * (no properties beyond the type), but some carry critical metadata.
  */
 
-interface BaseEdgeProperties {
+interface BaseEdgeProperties extends Record<string, unknown> {
 	type: EdgeType;
 }
 

@@ -1,4 +1,4 @@
-import { LanguageService, SUPPORTED_EXTENSIONS } from "./languageService";
+import { LanguageService, SUPPORTED_EXTENSIONS } from "../languageService";
 
 async function main() {
 	console.log("Supported extensions:", SUPPORTED_EXTENSIONS);
