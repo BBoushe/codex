@@ -14,7 +14,9 @@
 		"infra:logs": "docker compose logs -f",
 		"verify:embeddings": "bun run packages/shared/src/verifyEmbeddings.ts",
 		"lint": "bun run eslint .",
-		"lint:fix": "bun run eslint . --fix"
+		"lint:fix": "bun run eslint . --fix",
+		"cli": "bun run --watch apps/cli/src/index.ts",
+		"build:cli": "bun build apps/cli/src/index.ts --compile --outfile codex"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

@@ -1,15 +1,30 @@
 {
-  "name": "@codex/cli",
- "scripts": {
-    "dev": "bun run --watch src/index.ts"
-  },
-  "module": "src/index.ts",
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+	"name": "@codex/cli",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bun --hot src/index.ts",
+		"build": "bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='\"production\"' --env='BUN_PUBLIC_*'",
+		"start": "NODE_ENV=production bun src/index.ts"
+	},
+	"dependencies": {
+		"@codex/graph-client": "workspace:*",
+		"@codex/parser": "workspace:*",
+		"@codex/shared": "workspace:*",
+		"commander": "^12.1.0",
+		"figlet": "^1.8.0",
+		"ink": "^5.2.1",
+		"ink-text-input": "^6.0.0",
+		"neo4j-driver": "^6.0.1",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"typescript": "^5.9.3"
+	},
+	"devDependencies": {
+		"@types/react": "^18.3.1",
+		"@types/react-dom": "^18.3.1",
+		"@types/bun": "latest",
+		"@types/figlet": "1.5.8"
+	}
 }
