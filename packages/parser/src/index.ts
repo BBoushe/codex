@@ -30,6 +30,8 @@ import type { Visitor, VisitorFileResult } from "./types";
 export interface ParseProjectOptions extends WalkOptions {
 	/** Whether to resolve tsconfig path aliases. @default true */
 	useTsconfigPaths?: boolean;
+	/** Called after each file is processed during the AST-parsing phase. */
+	onProgress?: (parsed: number, total: number) => void;
 }
 
 export interface ParseProjectResult {
@@ -128,6 +130,7 @@ export async function parseProject(
 			const msg = err instanceof Error ? err.message : String(err);
 			console.warn(`[parser] Failed to parse ${file.relativePath}: ${msg}`);
 		}
+		options?.onProgress?.(visitorResults.length + filesFailed, walkResult.files.length);
 	}
 
 	const parseDurationMs = Date.now() - parseStart;
