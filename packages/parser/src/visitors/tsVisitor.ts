@@ -22,6 +22,19 @@
  *
  * This catches arrow components, function components, `React.memo()`, and
  * `React.forwardRef()`. The false-positive rate is negligible in practice.
+ *
+ * ## Known Limitations
+ * - **Nested components**: components defined inside other functions are not
+ *   extracted as separate nodes (intentional — they are a React anti-pattern).
+ * - **Complex HOC patterns**: `export default withAuth(MyComponent)` — the
+ *   wrapping relationship is not tracked; resolving it requires type inference.
+ * - **Cross-file type resolution**: prop interfaces imported from another file
+ *   are not resolved for prop-type enrichment (only file-local types are used).
+ * - **Namespace import member access**: `import * as Foo; Foo.bar()` — member
+ *   accesses on namespace imports are not linked to the source entity.
+ * - **Dynamic imports**: `import('./foo')` is not resolved.
+ * - **Generic/intersection prop types**: `Partial<Props>`, `A & B` — only
+ *   direct `TypeIdentifier` references are resolved in the type registry.
  */
 
 import type { Node } from "web-tree-sitter";
@@ -36,6 +49,7 @@ import {
 	type PropNode,
 	type CallsEdge,
 	type UsesHookEdge,
+	type SetsStateEdge,
 } from "@codex/shared";
 import {
 	nodeIdForFile,
@@ -52,6 +66,7 @@ import type {
 	Visitor,
 	VisitorFileResult,
 	UnresolvedReference,
+	ReExportEntry,
 	ImportedName,
 	PassedPropInfo,
 } from "../types";
@@ -375,6 +390,13 @@ interface VisitContext {
 	}[];
 	/** Accumulated cross-file references for the linker. */
 	unresolvedRefs: UnresolvedReference[];
+	/** Re-export entries for barrel-file support (Pass 2 input). */
+	reExports: ReExportEntry[];
+	/**
+	 * Local name of the entity exported as default via `export default <name>`.
+	 * Null if no such statement was encountered.
+	 */
+	defaultExportName: string | null;
 	/** Interface/type declarations found in this file, used to enrich prop metadata. */
 	typeRegistry: TypeRegistry;
 }
@@ -394,6 +416,8 @@ export class TypeScriptVisitor implements Visitor {
 			entities: [],
 			relationships: [],
 			unresolvedRefs: [],
+			reExports: [],
+			defaultExportName: null,
 			typeRegistry: new Map(),
 		};
 
@@ -431,11 +455,29 @@ export class TypeScriptVisitor implements Visitor {
 			}
 		}
 
+		// ── Resolve `export default <name>` ────────────────────────────
+		// If the file has `export default SomeName`, find the matching entity
+		// and create an EXPORTS edge from the file to that entity.
+		if (ctx.defaultExportName) {
+			const defaultEntity = ctx.entities.find(
+				(e) => e.node.name === ctx.defaultExportName,
+			);
+			if (defaultEntity) {
+				ctx.relationships.push({
+					sourceId: fileNodeId,
+					targetId: defaultEntity.node.nodeId,
+					edge: { type: EdgeType.EXPORTS },
+				});
+			}
+		}
+
 		return {
 			file: fileNode,
 			entities: ctx.entities,
 			relationships: ctx.relationships,
 			unresolvedReferences: ctx.unresolvedRefs,
+			reExports: ctx.reExports,
+			defaultExportName: ctx.defaultExportName,
 		};
 	}
 
@@ -470,16 +512,38 @@ export class TypeScriptVisitor implements Visitor {
 	// ── Export statements ────────────────────────────────────────────────
 
 	/**
-	 * Unwraps `export [default] <declaration>` and delegates to the
-	 * appropriate handler with `isExported = true`.
+	 * Handles all `export` statement forms:
 	 *
-	 * CST shape:
-	 * ```
-	 * export_statement
-	 *   function_declaration | class_declaration | lexical_declaration
-	 * ```
+	 * 1. **Declaration exports** — delegates to the appropriate handler:
+	 *    ```ts
+	 *    export function foo() {}
+	 *    export const Bar = () => <div/>
+	 *    export class Baz {}
+	 *    ```
+	 *
+	 * 2. **Named re-exports** — recorded in `ctx.reExports` for the linker:
+	 *    ```ts
+	 *    export { X } from './bar'
+	 *    export { X as Y } from './bar'
+	 *    ```
+	 *    CST: `export_statement > export_clause > export_specifier(s)` + `string`
+	 *
+	 * 3. **Namespace re-exports** — recorded with `exportedName: "*"`:
+	 *    ```ts
+	 *    export * from './bar'
+	 *    export * as ns from './bar'   (namespace alias — recorded as "*")
+	 *    ```
+	 *    CST: `export_statement > "*"` (unnamed) + `string`
+	 *
+	 * 4. **Default expression exports** — local name stored in `ctx.defaultExportName`:
+	 *    ```ts
+	 *    export default App
+	 *    ```
+	 *    CST: `export_statement > "default"` (unnamed) + `identifier`
+	 *    Resolved into an EXPORTS edge at the end of `visit()`.
 	 */
 	private handleExportStatement(node: Node, ctx: VisitContext): void {
+		// ── 1. Declaration exports ─────────────────────────────────────
 		for (const child of node.namedChildren) {
 			if (
 				child.type === "function_declaration" ||
@@ -490,8 +554,66 @@ export class TypeScriptVisitor implements Visitor {
 				return;
 			}
 		}
-		// Re-export statements (`export { X } from './bar'`) and bare
-		// `export default <expr>` are skipped in v1.
+
+		const sourceStringNode = node.children.find((c) => c.type === "string");
+		const exportClause = node.namedChildren.find(
+			(c) => c.type === "export_clause",
+		);
+
+		// ── 2. Named re-exports: `export { X, Y as Z } from './bar'` ──
+		if (exportClause && sourceStringNode) {
+			const specifier = this.extractStringValue(sourceStringNode);
+			for (const spec of exportClause.namedChildren) {
+				if (spec.type !== "export_specifier") continue;
+				const ids = spec.namedChildren.filter((c) => c.type === "identifier");
+				// One identifier = `export { X }`, two = `export { X as Y }`
+				const originalName = ids[0]?.text;
+				const exportedName = ids.length > 1 ? ids[1]?.text : originalName;
+				if (originalName && exportedName) {
+					ctx.reExports.push({ exportedName, originalName, sourceSpecifier: specifier });
+				}
+			}
+			return;
+		}
+
+		// ── 3. Namespace re-exports: `export * from './bar'` ──────────
+		if (sourceStringNode && !exportClause) {
+			const hasWildcard = node.children.some(
+				(c) => !c.isNamed && c.text === "*",
+			);
+			if (hasWildcard) {
+				const specifier = this.extractStringValue(sourceStringNode);
+				ctx.reExports.push({
+					exportedName: "*",
+					originalName: "*",
+					sourceSpecifier: specifier,
+				});
+				return;
+			}
+		}
+
+		// ── 4. Default expression: `export default SomeName` ──────────
+		// Only track simple identifier exports — `export default <expression>`
+		// with complex expressions (objects, arrow functions) is out of scope.
+		const hasDefault = node.children.some(
+			(c) => !c.isNamed && c.text === "default",
+		);
+		if (hasDefault && !sourceStringNode) {
+			const identNode = node.namedChildren.find(
+				(c) => c.type === "identifier",
+			);
+			if (identNode) {
+				ctx.defaultExportName = identNode.text;
+			}
+		}
+	}
+
+	/** Extracts the string value from a Tree-sitter `string` node, stripping quotes. */
+	private extractStringValue(node: Node): string {
+		const fragment = node.namedChildren.find(
+			(c) => c.type === "string_fragment",
+		);
+		return fragment?.text ?? node.text.slice(1, -1);
 	}
 
 	// ── Type/Interface extraction ───────────────────────────────────────
@@ -1037,13 +1159,57 @@ export class TypeScriptVisitor implements Visitor {
 			});
 		}
 
-		// Extract calls from function body, excluding parameter names
+		// Extract calls from function body, excluding parameter names.
+		// For custom hooks (useXxx), also extract their own useState hooks so
+		// setter calls can be resolved to SETS_STATE edges in Pass 1.
 		const body = getFunctionBody(fnNode);
 		if (body) {
 			const paramNames = paramsNode
 				? this.extractParameterNames(paramsNode)
 				: new Set<string>();
+
+			let setterToHookId = new Map<string, string>();
+			if (isHookName(name)) {
+				const beforeHooks = ctx.entities.length;
+				this.extractHooks(body, name, nodeId, ctx);
+				for (let i = beforeHooks; i < ctx.entities.length; i++) {
+					const entity = ctx.entities[i]!;
+					if (
+						entity.node.label === NodeLabel.Hook &&
+						(entity.node as HookNode).hookType === "useState"
+					) {
+						const bindings = (entity.node as HookNode).returnBindings;
+						if (bindings.length >= 2 && bindings[1]) {
+							setterToHookId.set(bindings[1], entity.node.nodeId);
+						}
+					}
+				}
+			}
+
+			const beforeCalls = ctx.unresolvedRefs.length;
 			this.extractCalls(body, nodeId, ctx, paramNames);
+
+			if (setterToHookId.size > 0) {
+				const newRefs = ctx.unresolvedRefs.splice(beforeCalls);
+				for (const ref of newRefs) {
+					if (ref.kind === "call") {
+						const hookNodeId = setterToHookId.get(ref.calleeName);
+						if (hookNodeId !== undefined) {
+							const edge: SetsStateEdge = {
+								type: EdgeType.SETS_STATE,
+								callSiteLine: ref.callSiteLine,
+							};
+							ctx.relationships.push({
+								sourceId: ref.callerNodeId,
+								targetId: hookNodeId,
+								edge,
+							});
+							continue;
+						}
+					}
+					ctx.unresolvedRefs.push(ref);
+				}
+			}
 		}
 	}
 
@@ -1094,7 +1260,25 @@ export class TypeScriptVisitor implements Visitor {
 		}
 
 		// ── Component internals ─────────────────────────────────────
+		const beforeHooks = ctx.entities.length;
 		this.extractHooks(body, name, nodeId, ctx);
+
+		// Build setter-name → hook-nodeId map from useState hooks just extracted.
+		// Used below to convert setter call refs into SETS_STATE edges (Pass 1).
+		const setterToHookId = new Map<string, string>();
+		for (let i = beforeHooks; i < ctx.entities.length; i++) {
+			const entity = ctx.entities[i]!;
+			if (
+				entity.node.label === NodeLabel.Hook &&
+				(entity.node as HookNode).hookType === "useState"
+			) {
+				const bindings = (entity.node as HookNode).returnBindings;
+				// [value, setter] — only track if both names are present
+				if (bindings.length >= 2 && bindings[1]) {
+					setterToHookId.set(bindings[1], entity.node.nodeId);
+				}
+			}
+		}
 
 		// Resolve the props type name for enriching PropNodes
 		const resolvedTypeName =
@@ -1108,7 +1292,33 @@ export class TypeScriptVisitor implements Visitor {
 		const paramExcludes = paramsNode
 			? this.extractParameterNames(paramsNode)
 			: new Set<string>();
+
+		const beforeCalls = ctx.unresolvedRefs.length;
 		this.extractCalls(body, nodeId, ctx, paramExcludes);
+
+		// Convert setter calls into SETS_STATE edges (resolved fully in Pass 1,
+		// no linker involvement needed since both sides are in the same file).
+		if (setterToHookId.size > 0) {
+			const newRefs = ctx.unresolvedRefs.splice(beforeCalls);
+			for (const ref of newRefs) {
+				if (ref.kind === "call") {
+					const hookNodeId = setterToHookId.get(ref.calleeName);
+					if (hookNodeId !== undefined) {
+						const edge: SetsStateEdge = {
+							type: EdgeType.SETS_STATE,
+							callSiteLine: ref.callSiteLine,
+						};
+						ctx.relationships.push({
+							sourceId: ref.callerNodeId,
+							targetId: hookNodeId,
+							edge,
+						});
+						continue;
+					}
+				}
+				ctx.unresolvedRefs.push(ref);
+			}
+		}
 	}
 
 	// ── Hook extraction ─────────────────────────────────────────────────
