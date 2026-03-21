@@ -54,6 +54,9 @@ export enum EdgeType {
 	ACCEPTS_PROP = "ACCEPTS_PROP", // Component -> Prop (prop definition)
 	PASSES_PROP = "PASSES_PROP", // Component -> Component (prop flow i.e. drilling)
 
+	// React state
+	SETS_STATE = "SETS_STATE", // Component/Function -> Hook(useState) — setter call
+
 	// Social
 	COMMITTED = "COMMITTED", // Developer -> Commit
 	MODIFIED = "MODIFIED", // Commit -> Function/Class/Component/File
@@ -269,6 +272,13 @@ export interface UsesHookEdge extends BaseEdgeProperties {
 	callSiteLine: number;
 }
 
+/** SETS_STATE: a function/component calls a useState setter, mutating state. */
+export interface SetsStateEdge extends BaseEdgeProperties {
+	type: EdgeType.SETS_STATE;
+	/** Line number of the setter call expression. */
+	callSiteLine: number;
+}
+
 /** HAS_EXPERTISE: the DOA-weighted developer -> file expertise edge. */
 export interface HasExpertiseEdge extends BaseEdgeProperties {
 	type: EdgeType.HAS_EXPERTISE;
@@ -291,6 +301,7 @@ export type CodexEdge =
 	| CallsEdge
 	| PassesPropEdge
 	| UsesHookEdge
+	| SetsStateEdge
 	| HasExpertiseEdge
 	| ModifiedEdge;
 
