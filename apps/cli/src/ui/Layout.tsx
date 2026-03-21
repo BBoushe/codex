@@ -11,9 +11,9 @@
  *   └────────────────────────────────────────────────────┘
  */
 
-import React, { useState, useEffect, type ReactNode } from "react";
+import React, { useState, useEffect, type ReactNode } from "react"; // useState/useEffect used by TokenTicker
 import { Box, Text } from "ink";
-import figlet from "figlet";
+// import figlet from "figlet"; // font files aren't available in compiled binary — title is pre-generated below
 import { tokenStore } from "../../../../packages/shared/src/store/tokens.js";
 
 // ─── ASCII logo (your X-with-nodes mark, navy + cyan) ────────────────────────
@@ -61,26 +61,22 @@ function AsciiLogo() {
 
 // ─── Figlet title ─────────────────────────────────────────────────────────────
 
+// Pre-generated with: figlet -f "ANSI Shadow" "CODEX"
+// (figlet font files are not available inside a compiled bun binary)
+const FIGLET_CODEX = `  ██████╗ ██████╗ ██████╗ ███████╗██╗  ██╗
+ ██╔════╝██╔═══██╗██╔══██╗██╔════╝╚██╗██╔╝
+██║     ██║   ██║██║  ██║█████╗   ╚███╔╝
+██║     ██║   ██║██║  ██║██╔══╝   ██╔██╗
+ ╚██████╗╚██████╔╝██████╔╝███████╗██╔╝ ██╗
+  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝`;
+
 const MIN_COLS_FOR_FIGLET = 70;
 
 function FigletTitle() {
 	const cols = process.stdout.columns;
 	const isNarrow = typeof cols === "number" && cols < MIN_COLS_FOR_FIGLET;
 
-	const [title, setTitle] = useState("");
-
-	useEffect(() => {
-		if (isNarrow) return;
-		figlet.text(
-			"CODEX",
-			{ font: "ANSI Shadow", horizontalLayout: "default" },
-			(err, result) => {
-				if (!err && result) setTitle(result);
-			},
-		);
-	}, [isNarrow]);
-
-	if (isNarrow || !title)
+	if (isNarrow)
 		return (
 			<Text bold color="cyan">
 				CODEX
@@ -89,7 +85,7 @@ function FigletTitle() {
 
 	return (
 		<Box flexDirection="column" alignItems="center">
-			{title.split("\n").map((line, i) => (
+			{FIGLET_CODEX.split("\n").map((line, i) => (
 				<Text key={i} color={i % 2 === 0 ? "cyan" : "blueBright"}>
 					{line}
 				</Text>
