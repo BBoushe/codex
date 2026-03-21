@@ -1,4 +1,5 @@
-import { formatName } from "@/utils/format";
+// Uses the @/utils barrel (export * chain) rather than the direct file path
+import { formatName } from "@/utils";
 
 export interface User {
 	id: string;

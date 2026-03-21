@@ -9,12 +9,7 @@
  * tracking that gets consumed and discarded during linking.
  */
 
-import type {
-	FileParseResult,
-	ParsedEntity,
-	ParsedRelationship,
-	FileNode,
-} from "@codex/shared";
+import type { FileParseResult } from "@codex/shared";
 import type { Tree } from "./languageService";
 import type { SourceFile } from "./fileWalker";
 
@@ -103,19 +98,48 @@ export type UnresolvedReference =
 	| UnresolvedRender;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Re-export metadata (produced by Pass 1, consumed by Pass 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A single re-export entry captured from `export { X } from './bar'`,
+ * `export * from './bar'`, or `export { X as Y } from './bar'`.
+ *
+ * These are separate from `UnresolvedReference` because they don't produce
+ * graph edges themselves — they inform the linker's `ExportRegistry` so it
+ * can follow re-export chains when resolving imports.
+ */
+export interface ReExportEntry {
+	/** The name exposed by this file. `"*"` for namespace re-exports. */
+	exportedName: string;
+	/** The original name in the source module. `"*"` for namespace re-exports. */
+	originalName: string;
+	/** The raw module specifier as written (e.g. `"./UserCard"`). */
+	sourceSpecifier: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Extended parse result (internal to the parser package)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * The output of a single-file visitor (Pass 1).
  *
- * Extends `FileParseResult` with unresolved references that the linker
- * will process in Pass 2. After linking, the `unresolvedReferences` are
+ * Extends `FileParseResult` with unresolved references and re-export metadata
+ * that the linker will process in Pass 2. After linking, these fields are
  * consumed and the result is narrowed back to a plain `FileParseResult`.
  */
 export interface VisitorFileResult extends FileParseResult {
 	/** References that require cross-file resolution. */
 	unresolvedReferences: UnresolvedReference[];
+	/** Re-exports extracted from this file (e.g. `export { X } from './bar'`). */
+	reExports: ReExportEntry[];
+	/**
+	 * The local name of the entity exported as the default, if any.
+	 * Set when the visitor encounters `export default SomeLocalName`.
+	 * Used by the linker to register the entity under the `"default"` key.
+	 */
+	defaultExportName: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { fetchUser } from "@/api/user";
-import { Avatar } from "@components/Avatar";
+// Uses the @/api barrel (named re-export chain) rather than direct file path
+import { fetchUser } from "@/api";
+import { Avatar } from "./Avatar";
 
 interface UserCardProps {
 	userId: string;
