@@ -7,8 +7,8 @@
 		"packages/*"
 	],
 	"scripts": {
-		"dev:backend": "bun run --cwd apps/backend dev",
-		"dev:frontend": "bun run --cwd apps/frontend dev",
+		"dev:backend": "bun run --watch apps/backend/src/index.ts",
+		"dev:frontend": "bun run --watch apps/frontend/src/index.ts",
 		"infra:up": "docker compose up -d",
 		"infra:down": "docker compose down",
 		"infra:logs": "docker compose logs -f",
