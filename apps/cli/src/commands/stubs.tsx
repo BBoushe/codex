@@ -5,7 +5,7 @@
  *
  * analyze  — Phase 5  (orchestrates ingest + mine + embed + serve)
  * mine     — Phase 3  (Git mining / DOA)
- * embed    — Phase 2  (vector embedding)
+ * embed    — Phase 2  (vector embedding) — IMPLEMENTED in embed.tsx
  * serve    — Phase 4  (launch web UI)
  */
 import { Box, Text, render } from "ink";
@@ -51,16 +51,6 @@ export function runMine() {
 			command="mine"
 			phase="Phase 3 (Week 9)"
 			description="Extracts git history, computes Degree of Authorship, and creates Developer nodes."
-		/>,
-	);
-}
-
-export function runEmbed() {
-	render(
-		<StubUI
-			command="embed"
-			phase="Phase 2 (Week 6)"
-			description="Generates vector embeddings for all graph entities and indexes them in ChromaDB."
 		/>,
 	);
 }

@@ -10,6 +10,7 @@ import {
 } from "@codex/graph-client";
 import { Step, ProgressBar, SummaryTable, type StepStatus } from "../ui/Progress.js";
 import { Layout } from "../ui/Layout.js";
+import { PostRunOptions, type PostRunAction } from "../ui/PostRunOptions.js";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -35,9 +36,11 @@ interface PhaseState {
 interface IngestUIProps {
 	targetPath: string;
 	options: IngestOptions;
+	onComplete?: (action: PostRunAction) => void;
+	nextPhaseLabel?: string;
 }
 
-function IngestUI({ targetPath, options }: IngestUIProps) {
+function IngestUI({ targetPath, options, onComplete, nextPhaseLabel }: IngestUIProps) {
 	const { exit } = useApp();
 
 	const [phases, setPhases] = useState<Record<Phase, PhaseState>>({
@@ -141,7 +144,8 @@ function IngestUI({ targetPath, options }: IngestUIProps) {
 			},
 		]);
 		setDone(true);
-		exit();
+		// If no post-run handler, exit immediately (direct CLI usage)
+		if (!onComplete) exit();
 	}
 
 	const STEP_LABELS: Record<Phase, string> = {
@@ -185,6 +189,16 @@ function IngestUI({ targetPath, options }: IngestUIProps) {
 
 				{done && <SummaryTable title="Summary" rows={summary} />}
 
+				{done && onComplete && (
+					<PostRunOptions
+						nextPhaseLabel={nextPhaseLabel}
+						onComplete={(action) => {
+							exit();
+							onComplete(action);
+						}}
+					/>
+				)}
+
 				{!done && (
 					<Box marginTop={1}>
 						<Text dimColor>^C to abort</Text>
@@ -197,10 +211,22 @@ function IngestUI({ targetPath, options }: IngestUIProps) {
 
 // ─── Entry point called by Commander ─────────────────────────────────────────
 
-export function runIngest(targetPath: string, options: IngestOptions) {
+export interface IngestRunOptions extends IngestOptions {
+	onComplete?: (action: PostRunAction) => void;
+	nextPhaseLabel?: string;
+}
+
+export function runIngest(targetPath: string, options: IngestRunOptions) {
 	if (!NEO4J_PASSWORD) {
 		console.error("NEO4J_PASSWORD is not set. Add it to your .env file.");
 		process.exit(1);
 	}
-	render(<IngestUI targetPath={targetPath} options={options} />);
+	render(
+		<IngestUI
+			targetPath={targetPath}
+			options={options}
+			onComplete={options.onComplete}
+			nextPhaseLabel={options.nextPhaseLabel}
+		/>,
+	);
 }

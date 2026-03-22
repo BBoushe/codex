@@ -14,7 +14,9 @@ import os from "node:os";
 import { Box, Text, render, useApp, useInput } from "ink";
 import { Layout } from "../ui/Layout.js";
 import { runIngest } from "./ingest.js";
-import { runAnalyze, runMine, runEmbed, runServe } from "./stubs.js";
+import { runAnalyze, runMine, runServe } from "./stubs.js";
+import { runEmbed } from "./embed.js";
+import type { PostRunAction } from "../ui/PostRunOptions.js";
 
 // ─── Path input with tab completion ───────────────────────────────────────────
 
@@ -128,8 +130,9 @@ interface OptionDef {
 	key: string; // e.g. "clean"
 	flag: string; // e.g. "--clean"
 	description: string;
-	default: boolean;
+	default: boolean | string;
 	available?: boolean; // defaults to true if omitted
+	choices?: string[]; // if present, renders as a string picker instead of boolean toggle
 }
 
 interface CommandDef {
@@ -147,7 +150,7 @@ const COMMANDS: CommandDef[] = [
 		name: "analyze",
 		description: "Full pipeline",
 		detail: "Runs ingest → mine → embed → serve in sequence.",
-		phase: "Phase 5",
+		phase: "All    ",
 		available: false,
 		needsPath: true,
 		options: [
@@ -190,9 +193,25 @@ const COMMANDS: CommandDef[] = [
 		detail:
 			"Generates vector embeddings for all graph entities and indexes them in ChromaDB.",
 		phase: "Phase 2",
-		available: false,
+		available: true,
 		needsPath: false,
-		options: [],
+		options: [
+			{
+				key: "clean",
+				flag: "--clean",
+				description: "Wipe existing embeddings before re-embedding",
+				default: false,
+				available: true,
+			},
+			{
+				key: "provider",
+				flag: "--provider",
+				description: "Embedding provider",
+				default: "siliconflow",
+				available: true,
+				choices: ["siliconflow", "openai"],
+			},
+		],
 	},
 	{
 		name: "mine",
@@ -313,7 +332,7 @@ function CommandPicker({ onSelect, onExit }: PickerProps) {
 
 // ─── Stage 2: Configuration ───────────────────────────────────────────────────
 
-type OptionValues = Record<string, boolean>;
+type OptionValues = Record<string, boolean | string>;
 
 /** Which config "row" is focused: "path" input or one of the option toggles. */
 type FocusTarget = "path" | number; // number = option index
@@ -322,6 +341,13 @@ interface ConfigStageProps {
 	cmd: CommandDef;
 	onConfirm: (path: string, opts: OptionValues) => void;
 	onBack: () => void;
+}
+
+/** Cycles to the next value in a choices array. */
+function cycleChoice(choices: string[], current: string, dir: 1 | -1): string {
+	const idx = choices.indexOf(current);
+	const next = (idx + dir + choices.length) % choices.length;
+	return choices[next]!;
 }
 
 function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
@@ -374,7 +400,7 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 				setFocusIdx((i) => Math.min(focusOrder.length - 1, i + 1));
 		}
 
-		if (input === " " && typeof focused === "number") {
+		if (typeof focused === "number") {
 			const opt = cmd.options[focused];
 
 			if (!opt) {
@@ -382,7 +408,32 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 				process.exit(1);
 			}
 
-			setOpts((o) => ({ ...o, [opt.key]: !o[opt.key] }));
+			if (opt.choices) {
+				// String picker: left/right arrows cycle through choices
+				if (key.leftArrow) {
+					setOpts((o) => ({
+						...o,
+						[opt.key]: cycleChoice(
+							opt.choices!,
+							String(o[opt.key] ?? opt.default),
+							-1,
+						),
+					}));
+				}
+				if (key.rightArrow) {
+					setOpts((o) => ({
+						...o,
+						[opt.key]: cycleChoice(
+							opt.choices!,
+							String(o[opt.key] ?? opt.default),
+							1,
+						),
+					}));
+				}
+			} else if (input === " ") {
+				// Boolean toggle: space bar
+				setOpts((o) => ({ ...o, [opt.key]: !o[opt.key] }));
+			}
 		}
 
 		if (key.return && !isTyping) {
@@ -467,12 +518,24 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 								{opt.description}
 							</Text>
 						</Box>
-						{/* Toggle widget / n/a badge */}
+						{/* Toggle / picker widget / n/a badge */}
 						{isAvailable ? (
-							<Box gap={1}>
-								<Text color={val ? "cyan" : "gray"}>{val ? "◉" : "○"}</Text>
-								<Text color={val ? "cyan" : "gray"}>{val ? "on" : "off"}</Text>
-							</Box>
+							opt.choices ? (
+								<Box gap={1}>
+									<Text color={isFocused ? "cyan" : "gray"}>{"‹"}</Text>
+									<Text color={isFocused ? "cyan" : "white"}>
+										{String(val)}
+									</Text>
+									<Text color={isFocused ? "cyan" : "gray"}>{"›"}</Text>
+								</Box>
+							) : (
+								<Box gap={1}>
+									<Text color={val ? "cyan" : "gray"}>{val ? "◉" : "○"}</Text>
+									<Text color={val ? "cyan" : "gray"}>
+										{val ? "on" : "off"}
+									</Text>
+								</Box>
+							)
 						) : (
 							<Text dimColor color="gray">
 								[n/a]
@@ -487,6 +550,8 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 				<Text dimColor>↑↓ navigate</Text>
 				{isTyping ? (
 					<Text dimColor>↵ next field</Text>
+				) : typeof focused === "number" && cmd.options[focused]?.choices ? (
+					<Text dimColor>‹› cycle</Text>
 				) : (
 					<Text dimColor>[space] toggle</Text>
 				)}
@@ -499,14 +564,31 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 	);
 }
 
+// ─── Phase progression ────────────────────────────────────────────────────────
+
+/** Maps each command to the next command in the pipeline, and its display label. */
+const PHASE_NEXT: Record<string, { name: string; label: string } | undefined> =
+	{
+		ingest: { name: "embed", label: "embed — Semantic indexing" },
+		embed: { name: "mine", label: "mine — Developer intelligence" },
+		mine: { name: "serve", label: "serve — Launch web UI" },
+	};
+
 // ─── Root orchestrator ────────────────────────────────────────────────────────
 
 type Stage = "pick" | "config" | "run";
 
-function InitUI() {
+interface InitUIProps {
+	/** Skip the picker and jump straight to the config stage for this command. */
+	initialCmd?: CommandDef;
+}
+
+function InitUI({ initialCmd }: InitUIProps = {}) {
 	const { exit } = useApp();
-	const [stage, setStage] = useState<Stage>("pick");
-	const [chosenCmd, setChosenCmd] = useState<CommandDef | null>(null);
+	const [stage, setStage] = useState<Stage>(initialCmd ? "config" : "pick");
+	const [chosenCmd, setChosenCmd] = useState<CommandDef | null>(
+		initialCmd ?? null,
+	);
 
 	function handleSelect(cmd: CommandDef) {
 		if (!cmd.available) {
@@ -519,33 +601,58 @@ function InitUI() {
 		setStage("config");
 	}
 
+	function launchCommand(name: string, targetPath: string, opts: OptionValues) {
+		const next = PHASE_NEXT[name];
+
+		const onComplete = (action: PostRunAction) => {
+			if (action === "next" && next) {
+				// Go to the ConfigStage for the next command so the user can review
+				// options before running it
+				const nextCmd = COMMANDS.find((c) => c.name === next.name);
+				render(<InitUI initialCmd={nextCmd} />);
+			} else {
+				// Return to the command picker
+				render(<InitUI />);
+			}
+		};
+
+		switch (name) {
+			case "ingest":
+				runIngest(targetPath, {
+					clean: !!opts["clean"],
+					onComplete,
+					nextPhaseLabel: next?.label,
+				});
+				break;
+			case "embed":
+				runEmbed({
+					clean: !!opts["clean"],
+					provider: String(opts["provider"] ?? "siliconflow"),
+					onComplete,
+					nextPhaseLabel: next?.label,
+				});
+				break;
+			case "analyze":
+				runAnalyze(targetPath);
+				break;
+			case "mine":
+				runMine();
+				break;
+			case "serve":
+				runServe();
+				break;
+			default:
+				exit();
+		}
+	}
+
 	function handleConfirm(targetPath: string, opts: OptionValues) {
 		if (!chosenCmd) return;
 		setStage("run");
 
 		// Small tick so Ink flushes the stage change before the command
 		// takes over the render tree
-		setTimeout(() => {
-			switch (chosenCmd.name) {
-				case "ingest":
-					runIngest(targetPath, { clean: !!opts["clean"] });
-					break;
-				case "analyze":
-					runAnalyze(targetPath);
-					break;
-				case "mine":
-					runMine();
-					break;
-				case "embed":
-					runEmbed();
-					break;
-				case "serve":
-					runServe();
-					break;
-				default:
-					exit();
-			}
-		}, 50);
+		setTimeout(() => launchCommand(chosenCmd.name, targetPath, opts), 50);
 	}
 
 	return (

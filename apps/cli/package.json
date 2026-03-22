@@ -12,6 +12,7 @@
 		"@codex/graph-client": "workspace:*",
 		"@codex/parser": "workspace:*",
 		"@codex/shared": "workspace:*",
+		"@codex/vector-client": "workspace:*",
 		"commander": "^12.1.0",
 		"figlet": "^1.8.0",
 		"ink": "^5.2.1",

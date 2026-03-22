@@ -2,7 +2,8 @@
 import { Command } from "commander";
 import { runInit } from "./commands/init.js";
 import { runIngest } from "./commands/ingest.js";
-import { runAnalyze, runMine, runEmbed, runServe } from "./commands/stubs.js";
+import { runAnalyze, runMine, runServe } from "./commands/stubs.js";
+import { runEmbed } from "./commands/embed.js";
 
 const program = new Command();
 
@@ -55,7 +56,15 @@ program
 	.description(
 		"Generate and index vector embeddings for all graph entities (requires prior ingest)",
 	)
-	.action(() => runEmbed());
+	.option("--clean", "wipe existing embeddings before re-embedding", false)
+	.option(
+		"--provider <name>",
+		"embedding provider (siliconflow | openai)",
+		"siliconflow",
+	)
+	.action((options: { clean: boolean; provider: string }) =>
+		runEmbed(options),
+	);
 
 // ─── serve ───────────────────────────────────────────────────────────────────
 
