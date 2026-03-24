@@ -19,6 +19,8 @@ import type { FileParseResult } from "@codex/shared";
 import { LanguageService } from "./languageService";
 import { walkDirectory, type WalkOptions, type SourceFile } from "./fileWalker";
 import { TypeScriptVisitor } from "./visitors/tsVisitor";
+import { JavaVisitor } from "./visitors/javaVisitor";
+import { PythonVisitor } from "./visitors/pyVisitor";
 import { ImportResolver } from "./importResolver";
 import { linkAll, type LinkStats } from "./linker";
 import type { Visitor, VisitorFileResult } from "./types";
@@ -79,10 +81,10 @@ function getVisitor(extension: string): Visitor | null {
 		case ".js":
 		case ".jsx":
 			return new TypeScriptVisitor();
-		// case ".py":
-		//   return new PythonVisitor();
-		// case ".java":
-		//   return new JavaVisitor();
+		case ".py":
+			return new PythonVisitor();
+		case ".java":
+			return new JavaVisitor();
 		default:
 			return null;
 	}
@@ -229,6 +231,8 @@ async function parseFile(
 export { walkDirectory } from "./fileWalker";
 export { LanguageService } from "./languageService";
 export { TypeScriptVisitor } from "./visitors/tsVisitor";
+export { JavaVisitor } from "./visitors/javaVisitor";
+export { PythonVisitor } from "./visitors/pyVisitor";
 export { ImportResolver } from "./importResolver";
 export { linkAll } from "./linker";
 export type { SourceFile, WalkResult } from "./fileWalker";

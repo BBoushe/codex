@@ -313,7 +313,7 @@ export function linkAll(
 			const resolvedPath = resolver.resolve(imp.specifier, filePath);
 
 			if (!resolvedPath) {
-				if (!resolver.isBareSpecifier(imp.specifier)) {
+				if (!resolver.isBareSpecifier(imp.specifier, filePath)) {
 					// Only count as failure if it's not an external package
 					stats.importsFailed++;
 				}

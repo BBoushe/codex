@@ -64,12 +64,55 @@ export interface ImportResolverConfig {
  * Extensions to try when resolving extensionless imports.
  * Order matters — `.ts` before `.js` reflects TypeScript project conventions.
  */
-const TRY_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"];
+const TRY_EXTENSIONS_TS = [".ts", ".tsx", ".js", ".jsx"];
 
 /**
  * Index file variants to try when the specifier points to a directory.
  */
-const TRY_INDEX_FILES = TRY_EXTENSIONS.map((ext) => `/index${ext}`);
+const TRY_INDEX_FILES_TS = TRY_EXTENSIONS_TS.map((ext) => `/index${ext}`);
+
+/** Python index files. */
+const TRY_INDEX_FILES_PY = ["/__init__.py"];
+
+/** Java has no extensionless imports — the class name IS the file name. */
+const TRY_EXTENSIONS_JAVA = [".java"];
+
+/**
+ * JDK package prefixes — imports starting with these are external.
+ */
+const JDK_PREFIXES = [
+	"java.",
+	"javax.",
+	"sun.",
+	"com.sun.",
+	"jdk.",
+	"org.w3c.",
+	"org.xml.",
+	"org.ietf.",
+];
+
+/**
+ * Common Python standard library top-level modules (subset).
+ * Used by isBareSpecifier to identify stdlib imports.
+ */
+const PYTHON_STDLIB = new Set([
+	"abc", "argparse", "ast", "asyncio", "base64", "bisect", "builtins",
+	"calendar", "cmath", "codecs", "collections", "concurrent", "configparser",
+	"contextlib", "copy", "csv", "ctypes", "dataclasses", "datetime",
+	"decimal", "difflib", "dis", "email", "enum", "errno", "fcntl",
+	"fileinput", "fnmatch", "fractions", "functools", "gc", "getpass", "glob",
+	"gzip", "hashlib", "heapq", "hmac", "html", "http", "importlib",
+	"inspect", "io", "ipaddress", "itertools", "json", "keyword", "linecache",
+	"locale", "logging", "lzma", "math", "mimetypes", "multiprocessing",
+	"numbers", "operator", "os", "pathlib", "pdb", "pickle", "platform",
+	"pprint", "queue", "random", "re", "readline", "reprlib", "secrets",
+	"select", "shelve", "shlex", "shutil", "signal", "site", "socket",
+	"sqlite3", "ssl", "stat", "statistics", "string", "struct", "subprocess",
+	"sys", "sysconfig", "tempfile", "textwrap", "threading", "time",
+	"timeit", "token", "tokenize", "traceback", "types", "typing",
+	"unicodedata", "unittest", "urllib", "uuid", "venv", "warnings",
+	"wave", "weakref", "webbrowser", "xml", "xmlrpc", "zipfile", "zipimport",
+]);
 
 /** Maximum depth for following tsconfig `extends` chains. */
 const MAX_EXTENDS_DEPTH = 5;
@@ -119,18 +162,30 @@ export class ImportResolver {
 	 * ```
 	 */
 	resolve(specifier: string, fromFile: string): string | null {
-		// ── 1. Relative imports ─────────────────────────────────────────
+		// Detect language from the importing file's extension
+		const ext = this.getExtension(fromFile);
+
+		if (ext === ".java") {
+			return this.resolveJava(specifier);
+		}
+		if (ext === ".py") {
+			return this.resolvePython(specifier, fromFile);
+		}
+
+		// ── TypeScript / JavaScript ─────────────────────────────────────
+
+		// 1. Relative imports
 		if (specifier.startsWith(".")) {
 			const fromDir = dirname(fromFile);
 			const candidate = normalize(join(fromDir, specifier));
 			return this.tryResolveFile(candidate);
 		}
 
-		// ── 2. tsconfig path aliases ────────────────────────────────────
+		// 2. tsconfig path aliases
 		const aliasResult = this.tryResolveAlias(specifier);
 		if (aliasResult) return aliasResult;
 
-		// ── 3. Bare specifier (external package) → skip ─────────────────
+		// 3. Bare specifier (external package) → skip
 		return null;
 	}
 
@@ -141,9 +196,27 @@ export class ImportResolver {
 	 * Useful for the linker to distinguish "couldn't resolve" from
 	 * "intentionally external."
 	 */
-	isBareSpecifier(specifier: string): boolean {
+	/**
+	 * Returns true if the specifier is external (npm package, JDK, stdlib).
+	 * Accepts optional `fromFile` for language-aware detection.
+	 */
+	isBareSpecifier(specifier: string, fromFile?: string): boolean {
+		const ext = fromFile ? this.getExtension(fromFile) : "";
+
+		// Java: JDK packages are bare
+		if (ext === ".java") {
+			return JDK_PREFIXES.some((p) => specifier.startsWith(p));
+		}
+
+		// Python: stdlib top-level modules are bare, relative (.) are not
+		if (ext === ".py") {
+			if (specifier.startsWith(".")) return false;
+			const topLevel = specifier.split(".")[0] ?? specifier;
+			return PYTHON_STDLIB.has(topLevel);
+		}
+
+		// TypeScript/JavaScript
 		if (specifier.startsWith(".") || specifier.startsWith("/")) return false;
-		// Check if it matches any tsconfig alias
 		for (const alias of this.pathAliases) {
 			if (
 				specifier.startsWith(alias.prefix) &&
@@ -162,6 +235,12 @@ export class ImportResolver {
 
 	// ── Resolution helpers ────────────────────────────────────────────
 
+	/** Extracts file extension including the dot. */
+	private getExtension(filePath: string): string {
+		const lastDot = filePath.lastIndexOf(".");
+		return lastDot >= 0 ? filePath.slice(lastDot) : "";
+	}
+
 	/**
 	 * Given a base path (without extension), tries to find a matching
 	 * known file by appending extensions or trying index files.
@@ -176,15 +255,134 @@ export class ImportResolver {
 		if (this.knownFiles.has(normalized)) return normalized;
 
 		// Try appending extensions: ./foo → ./foo.ts, ./foo.tsx, etc.
-		for (const ext of TRY_EXTENSIONS) {
+		for (const ext of TRY_EXTENSIONS_TS) {
 			const withExt = normalized + ext;
 			if (this.knownFiles.has(withExt)) return withExt;
 		}
 
 		// Try index files: ./foo → ./foo/index.ts, ./foo/index.tsx, etc.
-		for (const indexFile of TRY_INDEX_FILES) {
+		for (const indexFile of TRY_INDEX_FILES_TS) {
 			const withIndex = normalized + indexFile;
 			if (this.knownFiles.has(withIndex)) return withIndex;
+		}
+
+		return null;
+	}
+
+	// ── Java resolution ──────────────────────────────────────────────
+
+	/**
+	 * Resolves a Java import specifier to a file path.
+	 *
+	 * Java imports are package-qualified: `com.example.models.Dog`
+	 * maps to `com/example/models/Dog.java` (or under a `src/` prefix).
+	 *
+	 * Wildcard imports (`com.example.models.*`) resolve to the package
+	 * directory but cannot be mapped to individual files.
+	 */
+	private resolveJava(specifier: string): string | null {
+		// Skip JDK / external imports
+		if (JDK_PREFIXES.some((p) => specifier.startsWith(p))) return null;
+
+		// Strip wildcard suffix: `com.example.models.*` → `com.example.models`
+		// Wildcard imports can't resolve to a specific file
+		if (specifier.endsWith(".*")) return null;
+
+		// Convert dots to path separators: com.example.models.Dog → com/example/models/Dog
+		const pathFromPackage = specifier.replace(/\./g, "/");
+
+		// Try with .java extension directly
+		for (const ext of TRY_EXTENSIONS_JAVA) {
+			const candidate = normalize(pathFromPackage + ext);
+			if (this.knownFiles.has(candidate)) return candidate;
+		}
+
+		// Try with common source root prefixes
+		const srcPrefixes = ["src/", "src/main/java/", "main/java/"];
+		for (const prefix of srcPrefixes) {
+			for (const ext of TRY_EXTENSIONS_JAVA) {
+				const candidate = normalize(prefix + pathFromPackage + ext);
+				if (this.knownFiles.has(candidate)) return candidate;
+			}
+		}
+
+		return null;
+	}
+
+	// ── Python resolution ────────────────────────────────────────────
+
+	/**
+	 * Resolves a Python import specifier to a file path.
+	 *
+	 * Handles:
+	 *   - Relative imports: `from .animal import Animal` → sibling file
+	 *   - Parent-relative: `from ..util.formatter import capitalize`
+	 *   - Absolute (project-internal): `from models.animal import Animal`
+	 *
+	 * Python module resolution:
+	 *   - `foo.bar` → try `foo/bar.py` then `foo/bar/__init__.py`
+	 *   - `.foo` (from `pkg/sub/mod.py`) → `pkg/sub/foo.py` or `pkg/sub/foo/__init__.py`
+	 *   - `..foo` → `pkg/foo.py` or `pkg/foo/__init__.py`
+	 */
+	private resolvePython(specifier: string, fromFile: string): string | null {
+		// Skip stdlib imports
+		if (!specifier.startsWith(".")) {
+			const topLevel = specifier.split(".")[0] ?? specifier;
+			if (PYTHON_STDLIB.has(topLevel)) return null;
+		}
+
+		let basePath: string;
+
+		if (specifier.startsWith(".")) {
+			// Relative import: count leading dots for parent traversal
+			let dots = 0;
+			while (dots < specifier.length && specifier[dots] === ".") dots++;
+
+			const modulePart = specifier.slice(dots); // e.g. "models.animal" or ""
+			const fromDir = dirname(fromFile);
+
+			// Each dot after the first goes up one directory
+			// 1 dot = current package, 2 dots = parent, etc.
+			let baseDir = fromDir;
+			for (let i = 1; i < dots; i++) {
+				baseDir = dirname(baseDir);
+			}
+
+			if (modulePart) {
+				basePath = normalize(
+					join(baseDir, modulePart.replace(/\./g, "/")),
+				);
+			} else {
+				// `from . import X` → the __init__.py of the current package
+				basePath = baseDir;
+			}
+		} else {
+			// Absolute import within the project: `models.animal`
+			basePath = normalize(specifier.replace(/\./g, "/"));
+		}
+
+		return this.tryResolvePythonFile(basePath);
+	}
+
+	/**
+	 * Given a base path, tries to find a matching Python file:
+	 *   1. Exact `.py` file
+	 *   2. Package directory with `__init__.py`
+	 */
+	private tryResolvePythonFile(basePath: string): string | null {
+		const normalized = normalize(basePath);
+
+		// Exact match (already has .py extension)
+		if (this.knownFiles.has(normalized)) return normalized;
+
+		// Try foo.py
+		const withPy = normalized + ".py";
+		if (this.knownFiles.has(withPy)) return withPy;
+
+		// Try foo/__init__.py (package)
+		for (const indexFile of TRY_INDEX_FILES_PY) {
+			const withInit = normalized + indexFile;
+			if (this.knownFiles.has(withInit)) return withInit;
 		}
 
 		return null;
