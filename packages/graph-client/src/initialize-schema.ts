@@ -109,6 +109,23 @@ const SCHEMA_STATEMENTS: readonly string[] = [
 
 	`CREATE INDEX class_file_name IF NOT EXISTS
     FOR (n:Class) ON (n.filePath, n.name);`,
+
+	// ── Interface & Decorator (Java/Python support) ──────────────────────
+
+	`CREATE CONSTRAINT interface_nodeId IF NOT EXISTS
+    FOR (n:Interface) REQUIRE n.nodeId IS UNIQUE;`,
+
+	`CREATE CONSTRAINT decorator_nodeId IF NOT EXISTS
+    FOR (n:Decorator) REQUIRE n.nodeId IS UNIQUE;`,
+
+	`CREATE INDEX interface_name IF NOT EXISTS
+    FOR (n:Interface) ON (n.name);`,
+
+	`CREATE INDEX interface_filePath IF NOT EXISTS
+    FOR (n:Interface) ON (n.filePath);`,
+
+	`CREATE INDEX decorator_name IF NOT EXISTS
+    FOR (n:Decorator) ON (n.name);`,
 ];
 
 export interface SchemaInitResult {

@@ -577,17 +577,32 @@ function buildStructuralCypher(pattern: StructuralPattern): string | null {
 				       'Prop' AS label
 			`;
 
-		// TODO: Week 8 — depends on interface nodes in parser
 		case "implements":
-			return null;
+			return `
+				MATCH (c:Class)-[:IMPLEMENTS]->(i:Interface)
+				WHERE i.name CONTAINS $name OR c.name CONTAINS $name
+				RETURN c.nodeId AS nodeId, c.name AS name,
+				       c.qualifiedName AS qualifiedName, c.filePath AS filePath,
+				       'Class' AS label
+			`;
 
-		// TODO: Week 8 — depends on decorator extraction in parser
 		case "decorators":
-			return null;
+			return `
+				MATCH (n)-[:DECORATED_BY]->(d:Decorator)
+				WHERE d.name CONTAINS $name OR n.name CONTAINS $name
+				RETURN n.nodeId AS nodeId, n.name AS name,
+				       n.qualifiedName AS qualifiedName, n.filePath AS filePath,
+				       labels(n)[0] AS label
+			`;
 
-		// TODO: Week 8 — depends on method override detection in parser
 		case "overrides":
-			return null;
+			return `
+				MATCH (child:Function)-[:OVERRIDES]->(parent:Function)
+				WHERE child.name CONTAINS $name OR parent.name CONTAINS $name
+				RETURN child.nodeId AS nodeId, child.name AS name,
+				       child.qualifiedName AS qualifiedName, child.filePath AS filePath,
+				       'Function' AS label
+			`;
 	}
 }
 
@@ -644,6 +659,94 @@ export async function findShortestPath(
 	} finally {
 		await session.close();
 	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Name resolution
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Result of a name-to-nodeId resolution. */
+export interface ResolvedEntity {
+	nodeId: string;
+	name: string;
+	qualifiedName: string;
+	label: string;
+	filePath: string;
+}
+
+/** Hex pattern for deterministic nodeIds (16 hex chars). */
+const NODE_ID_PATTERN = /^[0-9a-f]{16}$/;
+
+/** Returns true if the input looks like a raw nodeId (16-char hex string). */
+export function isNodeId(input: string): boolean {
+	return NODE_ID_PATTERN.test(input);
+}
+
+/**
+ * Resolves an entity name to its nodeId(s) in the graph.
+ *
+ * Two-phase lookup:
+ *   1. Exact match on `name` or `qualifiedName`
+ *   2. Fallback to CONTAINS match on `name`, `qualifiedName`, or `filePath`
+ *
+ * Returns up to `limit` results, ordered by match quality (exact first).
+ */
+export async function resolveEntityByName(
+	driver: Driver,
+	name: string,
+	limit = 5,
+): Promise<ResolvedEntity[]> {
+	const session = driver.session({ database: "neo4j" });
+
+	try {
+		// Phase 1: exact match
+		const exact = await session.run(
+			`
+			MATCH (n)
+			WHERE n.name = $name OR n.qualifiedName = $name
+			RETURN n.nodeId AS nodeId, n.name AS name,
+			       n.qualifiedName AS qualifiedName,
+			       labels(n)[0] AS label, n.filePath AS filePath
+			LIMIT toInteger($limit)
+			`,
+			{ name, limit },
+		);
+
+		if (exact.records.length > 0) {
+			return exact.records.map(recordToResolvedEntity);
+		}
+
+		// Phase 2: fuzzy CONTAINS fallback
+		const fuzzy = await session.run(
+			`
+			MATCH (n)
+			WHERE n.name CONTAINS $name
+			   OR n.qualifiedName CONTAINS $name
+			   OR n.filePath CONTAINS $name
+			RETURN n.nodeId AS nodeId, n.name AS name,
+			       n.qualifiedName AS qualifiedName,
+			       labels(n)[0] AS label, n.filePath AS filePath
+			LIMIT toInteger($limit)
+			`,
+			{ name, limit },
+		);
+
+		return fuzzy.records.map(recordToResolvedEntity);
+	} finally {
+		await session.close();
+	}
+}
+
+function recordToResolvedEntity(
+	record: import("neo4j-driver").Record,
+): ResolvedEntity {
+	return {
+		nodeId: record.get("nodeId") as string,
+		name: record.get("name") as string,
+		qualifiedName: (record.get("qualifiedName") as string) ?? "",
+		label: (record.get("label") as string) ?? "",
+		filePath: (record.get("filePath") as string) ?? "",
+	};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

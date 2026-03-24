@@ -77,6 +77,16 @@ export const GRAPH_SCHEMA: GraphSchema = {
 			matchProperties: ["name", "filePath", "propType", "isRequired"],
 		},
 		{
+			label: "Interface",
+			description: "Interface declaration (Java interfaces, Python ABCs)",
+			matchProperties: ["name", "qualifiedName", "filePath", "isExported"],
+		},
+		{
+			label: "Decorator",
+			description: "Decorator or annotation (Python @decorator, Java @Annotation)",
+			matchProperties: ["name", "filePath", "decoratorKind"],
+		},
+		{
 			label: "Developer",
 			description: "Git author with expertise data",
 			matchProperties: ["name", "email"],
@@ -111,15 +121,15 @@ export const GRAPH_SCHEMA: GraphSchema = {
 		},
 		{
 			type: "EXPORTS",
-			description: "File exports a function, class, or component",
+			description: "File exports a function, class, component, or interface",
 			fromLabels: ["File"],
-			toLabels: ["Function", "Class", "Component"],
+			toLabels: ["Function", "Class", "Component", "Interface"],
 			properties: [],
 		},
 		{
 			type: "DEFINED_IN",
 			description: "Entity is defined in a file",
-			fromLabels: ["Function", "Class", "Component", "Hook"],
+			fromLabels: ["Function", "Class", "Component", "Hook", "Interface", "Decorator"],
 			toLabels: ["File"],
 			properties: [],
 		},
@@ -128,6 +138,27 @@ export const GRAPH_SCHEMA: GraphSchema = {
 			description: "Class extends another class",
 			fromLabels: ["Class"],
 			toLabels: ["Class"],
+			properties: [],
+		},
+		{
+			type: "IMPLEMENTS",
+			description: "Class implements an interface",
+			fromLabels: ["Class"],
+			toLabels: ["Interface"],
+			properties: [],
+		},
+		{
+			type: "DECORATED_BY",
+			description: "Entity is decorated/annotated (Python @decorator, Java @Annotation)",
+			fromLabels: ["Function", "Class", "Interface"],
+			toLabels: ["Decorator"],
+			properties: [],
+		},
+		{
+			type: "OVERRIDES",
+			description: "Method overrides a parent class method (Java @Override)",
+			fromLabels: ["Function"],
+			toLabels: ["Function"],
 			properties: [],
 		},
 		{
