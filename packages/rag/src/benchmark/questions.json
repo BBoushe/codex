@@ -1,0 +1,67 @@
+[
+  {
+    "query": "What function fetches blog posts from the API?",
+    "expectedEntity": "fetchPosts",
+    "type": "semantic",
+    "expectedIntent": "hybrid"
+  },
+  {
+    "query": "What component displays a list of posts?",
+    "expectedEntity": "PostList",
+    "type": "semantic",
+    "expectedIntent": "hybrid"
+  },
+  {
+    "query": "What validates email addresses?",
+    "expectedEntity": "isValidEmail",
+    "type": "semantic",
+    "expectedIntent": "hybrid"
+  },
+  {
+    "query": "What custom hook manages user state?",
+    "expectedEntity": "useUser",
+    "type": "semantic",
+    "expectedIntent": "hybrid"
+  },
+  {
+    "query": "How does the user data flow from the API to the UI?",
+    "expectedEntity": "useUser",
+    "type": "semantic",
+    "expectedIntent": "hybrid"
+  },
+  {
+    "query": "What calls fetchPosts?",
+    "expectedEntity": "PostList",
+    "type": "structural",
+    "expectedIntent": "structural",
+    "expectedPattern": "called_by"
+  },
+  {
+    "query": "What does App render?",
+    "expectedEntity": "Header",
+    "type": "structural",
+    "expectedIntent": "structural",
+    "expectedPattern": "renders"
+  },
+  {
+    "query": "What hooks does PostList use?",
+    "expectedEntity": "useState",
+    "type": "structural",
+    "expectedIntent": "structural",
+    "expectedPattern": "uses_hook"
+  },
+  {
+    "query": "Where is formatDate defined?",
+    "expectedEntity": "format.ts",
+    "type": "structural",
+    "expectedIntent": "structural",
+    "expectedPattern": "defined_in"
+  },
+  {
+    "query": "What components accept an onClick prop?",
+    "expectedEntity": "Button",
+    "type": "structural",
+    "expectedIntent": "structural",
+    "expectedPattern": "accepts_props"
+  }
+]
