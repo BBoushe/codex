@@ -4,6 +4,7 @@ import { runInit } from "./commands/init.js";
 import { runIngest } from "./commands/ingest.js";
 import { runAnalyze, runMine, runServe } from "./commands/stubs.js";
 import { runEmbed } from "./commands/embed.js";
+import { runQuery } from "./commands/query.js";
 
 const program = new Command();
 
@@ -74,5 +75,38 @@ program
 		"Launch the CODEX web UI on localhost (requires prior ingest + embed)",
 	)
 	.action(() => runServe());
+
+// ─── query ───────────────────────────────────────────────────────────────────
+
+program
+	.command("query <question>")
+	.description(
+		"Ask a natural language question about the codebase (requires prior ingest + embed)",
+	)
+	.option(
+		"--budget <tier>",
+		"context budget: compact | standard | full",
+		process.env.RAG_CONTEXT_BUDGET ?? "standard",
+	)
+	.option(
+		"--provider <name>",
+		"LLM provider: siliconflow | openai | anthropic | gemini",
+		process.env.LLM_PROVIDER ?? "siliconflow",
+	)
+	.option("--top-k <number>", "override auto-detected topK", (v) =>
+		parseInt(v, 10),
+	)
+	.action(
+		(
+			question: string,
+			options: { budget: string; provider: string; topK?: number },
+		) => {
+			runQuery(question, {
+				budget: options.budget as "compact" | "standard" | "full",
+				provider: options.provider,
+				topK: options.topK,
+			});
+		},
+	);
 
 program.parse();

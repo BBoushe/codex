@@ -11,6 +11,7 @@
 	"dependencies": {
 		"@codex/graph-client": "workspace:*",
 		"@codex/parser": "workspace:*",
+		"@codex/rag": "workspace:*",
 		"@codex/shared": "workspace:*",
 		"@codex/vector-client": "workspace:*",
 		"commander": "^12.1.0",

@@ -16,6 +16,7 @@ import { Layout } from "../ui/Layout.js";
 import { runIngest } from "./ingest.js";
 import { runAnalyze, runMine, runServe } from "./stubs.js";
 import { runEmbed } from "./embed.js";
+import { runQuery } from "./query.js";
 import type { PostRunAction } from "../ui/PostRunOptions.js";
 
 // ─── Path input with tab completion ───────────────────────────────────────────
@@ -142,6 +143,8 @@ interface CommandDef {
 	phase: string;
 	available: boolean;
 	needsPath: boolean; // whether to prompt for a <path> argument
+	pathIsText?: boolean; // if true, skip filesystem validation on the path input
+	pathLabel?: string; // display label for the path input (default: "path")
 	options: OptionDef[];
 }
 
@@ -210,6 +213,35 @@ const COMMANDS: CommandDef[] = [
 				default: "siliconflow",
 				available: true,
 				choices: ["siliconflow", "openai"],
+			},
+		],
+	},
+	{
+		name: "query",
+		description: "Ask the codebase",
+		detail:
+			"Hybrid RAG search: classifies intent, runs vector + graph + LLM synthesis.",
+		phase: "Phase 2",
+		available: true,
+		needsPath: true,
+		pathIsText: true,
+		pathLabel: "question",
+		options: [
+			{
+				key: "budget",
+				flag: "--budget",
+				description: "Context budget",
+				default: "standard",
+				available: true,
+				choices: ["compact", "standard", "full"],
+			},
+			{
+				key: "provider",
+				flag: "--provider",
+				description: "LLM provider",
+				default: "siliconflow",
+				available: true,
+				choices: ["siliconflow", "openai", "anthropic", "gemini"],
 			},
 		],
 	},
@@ -312,7 +344,7 @@ function CommandPicker({ onSelect, onExit }: PickerProps) {
 						<Text bold color="cyan">
 							codex {active.name}
 						</Text>
-						{active.needsPath && <Text color="gray">&lt;path&gt;</Text>}
+						{active.needsPath && <Text color="gray">&lt;{active.pathLabel ?? "path"}&gt;</Text>}
 						{!active.available && (
 							<Text color="yellow"> · not yet implemented</Text>
 						)}
@@ -351,7 +383,7 @@ function cycleChoice(choices: string[], current: string, dir: 1 | -1): string {
 }
 
 function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
-	const [path, setPath] = useState(".");
+	const [path, setPath] = useState(cmd.pathIsText ? "" : ".");
 	const [opts, setOpts] = useState<OptionValues>(
 		Object.fromEntries(cmd.options.map((o) => [o.key, o.default])),
 	);
@@ -368,6 +400,7 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 	const focused = focusOrder[focusIdx] ?? (cmd.needsPath ? "path" : 0);
 
 	function validatePath(p: string): string | null {
+		if (cmd.pathIsText) return null; // free-text input, skip filesystem check
 		const expanded = p.replace(/^~/, os.homedir());
 		return fs.existsSync(expanded) ? null : "path not found";
 	}
@@ -469,7 +502,7 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 							{focused === "path" ? "❯" : " "}
 						</Text>
 						<Text color="gray" dimColor>
-							path
+							{cmd.pathLabel ?? "path"}
 						</Text>
 						{focused === "path" ? (
 							<PathInput
@@ -627,6 +660,17 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 			case "embed":
 				runEmbed({
 					clean: !!opts["clean"],
+					provider: String(opts["provider"] ?? "siliconflow"),
+					onComplete,
+					nextPhaseLabel: next?.label,
+				});
+				break;
+			case "query":
+				runQuery(targetPath, {
+					budget: String(opts["budget"] ?? "standard") as
+						| "compact"
+						| "standard"
+						| "full",
 					provider: String(opts["provider"] ?? "siliconflow"),
 					onComplete,
 					nextPhaseLabel: next?.label,
