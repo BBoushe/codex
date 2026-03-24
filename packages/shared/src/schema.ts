@@ -25,6 +25,8 @@ export enum NodeLabel {
 	File = "File",
 	Function = "Function",
 	Class = "Class",
+	Interface = "Interface",
+	Decorator = "Decorator",
 
 	// React specific
 	Component = "Component",
@@ -47,6 +49,9 @@ export enum EdgeType {
 	IMPORTS = "IMPORTS", // File -> File
 	EXPORTS = "EXPORTS", // File -> Function/Class/Component
 	INHERITS = "INHERITS", // Class -> Class
+	IMPLEMENTS = "IMPLEMENTS", // Class -> Interface
+	DECORATED_BY = "DECORATED_BY", // Entity -> Decorator (Python decorators, Java annotations)
+	OVERRIDES = "OVERRIDES", // Method -> Parent Method (Java @Override, Python deferred to linker)
 
 	// React specific
 	RENDERS = "RENDERS", // Component -> Component (JSX usage)
@@ -130,6 +135,27 @@ export interface ClassNode extends BaseNodeProperties {
 	parentClass: string | null; // name of extended class, if any
 	interfaces: string[]; // implemented interface names
 	sourceCode: string;
+}
+
+export interface InterfaceNode extends BaseNodeProperties {
+	label: NodeLabel.Interface;
+	filePath: string;
+	startLine: number;
+	endLine: number;
+	loc: number;
+	methods: string[]; // declared method signatures
+	isExported: boolean;
+	sourceCode: string;
+}
+
+export interface DecoratorNode extends BaseNodeProperties {
+	label: NodeLabel.Decorator;
+	filePath: string;
+	startLine: number;
+	/** Java annotations vs Python decorators */
+	decoratorKind: "annotation" | "decorator";
+	/** Decorator/annotation arguments as source text */
+	arguments: string[];
 }
 
 // React-specific
@@ -232,6 +258,8 @@ export type CodexNode =
 	| FileNode
 	| FunctionNode
 	| ClassNode
+	| InterfaceNode
+	| DecoratorNode
 	| ComponentNode
 	| HookNode
 	| PropNode
@@ -296,6 +324,21 @@ export interface ModifiedEdge extends BaseEdgeProperties {
 	linesDeleted: number;
 }
 
+/** IMPLEMENTS: Class -> Interface. */
+export interface ImplementsEdge extends BaseEdgeProperties {
+	type: EdgeType.IMPLEMENTS;
+}
+
+/** DECORATED_BY: Entity -> Decorator (Python decorators, Java annotations). */
+export interface DecoratedByEdge extends BaseEdgeProperties {
+	type: EdgeType.DECORATED_BY;
+}
+
+/** OVERRIDES: Method -> Parent Method. */
+export interface OverridesEdge extends BaseEdgeProperties {
+	type: EdgeType.OVERRIDES;
+}
+
 export type CodexEdge =
 	| BaseEdgeProperties
 	| CallsEdge
@@ -303,7 +346,10 @@ export type CodexEdge =
 	| UsesHookEdge
 	| SetsStateEdge
 	| HasExpertiseEdge
-	| ModifiedEdge;
+	| ModifiedEdge
+	| ImplementsEdge
+	| DecoratedByEdge
+	| OverridesEdge;
 
 // ─────────────────────────────────────────────────────────────
 // Utility types for parser -> graph-client handoff

@@ -135,6 +135,29 @@ export function nodeIdForProp(
 }
 
 /**
+ * nodeId for an `Interface` node (Java interfaces, Python ABCs).
+ * @param filePath - Relative path to the containing file.
+ * @param name     - Interface name as it appears in source.
+ */
+export function nodeIdForInterface(filePath: string, name: string): string {
+	return hashFields(NodeLabel.Interface, filePath, name);
+}
+
+/**
+ * nodeId for a `Decorator` node (Python decorators, Java annotations).
+ * @param filePath   - Relative path to the containing file.
+ * @param name       - Decorator/annotation name (e.g. "@Override", "@app.route").
+ * @param targetLine - Line number of the decorated entity (disambiguates reuse of same decorator).
+ */
+export function nodeIdForDecorator(
+	filePath: string,
+	name: string,
+	targetLine: number,
+): string {
+	return hashFields(NodeLabel.Decorator, filePath, name, String(targetLine));
+}
+
+/**
  * nodeId for a `Developer` node.
  * @param email - Git author email, used as the unique developer identifier.
  */
