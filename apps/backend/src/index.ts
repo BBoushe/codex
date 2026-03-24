@@ -12,6 +12,7 @@ import {
 import { createChromaClient } from "@codex/vector-client";
 import { searchRoutes } from "./routes/search.js";
 import { hybridRoutes } from "./routes/hybrid.js";
+import { structuralRoutes } from "./routes/structural.js";
 
 // ─── Environment validation ──────────────────────────────────────────────────
 
@@ -156,6 +157,7 @@ new Elysia()
 			classifierProvider,
 		}),
 	)
+	.use(structuralRoutes({ driver }))
 	.get("/health", () => ({ status: "ok", neo4j: true, chroma: true }))
 	.listen(PORT);
 
