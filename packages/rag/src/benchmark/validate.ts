@@ -30,6 +30,8 @@ import type { ChromaClient } from "chromadb";
 import {
 	expandContext,
 	structuralQuery,
+	resolveEntityByName,
+	findShortestPath,
 	type StructuralPattern,
 } from "@codex/graph-client";
 import {
@@ -611,6 +613,94 @@ async function testEndToEnd(
 	);
 }
 
+// ─── 6. Name resolution & path search ─────────────────────────────────────
+
+async function testNameResolutionAndPath(driver: Driver) {
+	await runTest(
+		"resolution",
+		"resolveEntityByName finds fetchPosts",
+		async () => {
+			const results = await resolveEntityByName(driver, "fetchPosts");
+			if (results.length === 0)
+				fail("resolution.empty", "No results for 'fetchPosts'");
+			const first = results[0]!;
+			if (!first.nodeId)
+				fail("resolution.nodeId", "First result has no nodeId");
+			if (!first.name.includes("fetchPosts"))
+				fail(
+					"resolution.name",
+					`Expected name containing 'fetchPosts', got '${first.name}'`,
+				);
+			return {
+				detail: `found=${results.length} first=${first.name} (${first.label})`,
+			};
+		},
+	);
+
+	await runTest(
+		"resolution",
+		"resolveEntityByName returns empty for nonsense",
+		async () => {
+			const results = await resolveEntityByName(
+				driver,
+				"zzz_nonexistent_entity_xyz",
+			);
+			if (results.length !== 0)
+				fail(
+					"resolution.unexpected",
+					`Expected 0 results, got ${results.length}`,
+				);
+			return { detail: "correctly returned empty" };
+		},
+	);
+
+	await runTest(
+		"path",
+		"findShortestPath between two known entities",
+		async () => {
+			const fromResults = await resolveEntityByName(driver, "fetchPosts");
+			const toResults = await resolveEntityByName(driver, "PostList");
+			if (fromResults.length === 0)
+				fail("path.resolve_from", "Could not resolve 'fetchPosts'");
+			if (toResults.length === 0)
+				fail("path.resolve_to", "Could not resolve 'PostList'");
+
+			const fromId = fromResults[0]!.nodeId;
+			const toId = toResults[0]!.nodeId;
+			// Try both directions since the path may be directed
+			const pathResult =
+				(await findShortestPath(driver, fromId, toId)) ??
+				(await findShortestPath(driver, toId, fromId));
+
+			if (!pathResult)
+				fail(
+					"path.null",
+					"No path found between fetchPosts and PostList in either direction",
+				);
+			if (pathResult.hops === 0)
+				fail("path.hops", "Path has 0 hops — nodes are the same?");
+			return {
+				detail: `hops=${pathResult.hops} edges=[${pathResult.edgeTypes.join(",")}] nodes=${pathResult.path.map((n) => n.name).join(" → ")}`,
+			};
+		},
+	);
+
+	await runTest(
+		"path",
+		"findShortestPath returns null for nonexistent node",
+		async () => {
+			const result = await findShortestPath(
+				driver,
+				"nonexistent_aaa",
+				"nonexistent_bbb",
+			);
+			if (result !== null)
+				fail("path.unexpected", "Expected null for nonexistent nodes");
+			return { detail: "correctly returned null" };
+		},
+	);
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -659,6 +749,11 @@ async function main() {
 		llmProvider,
 		classifierProvider,
 	);
+
+	console.log(
+		"\n── 6. Name Resolution & Path Search ───────────────────\n",
+	);
+	await testNameResolutionAndPath(driver);
 
 	await driver.close();
 

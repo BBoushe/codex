@@ -62,7 +62,8 @@ if (!sfApiKey) {
 interface Question {
 	query: string;
 	expectedEntity: string;
-	type: "semantic" | "structural";
+	expectedEntities?: string[]; // multi-entity for architectural recall
+	type: "semantic" | "structural" | "architectural";
 	expectedIntent: "hybrid" | "structural";
 	expectedPattern?: string; // for structural questions
 }
@@ -94,6 +95,9 @@ interface BenchmarkResult {
 	outputTokens: number;
 	// Timing breakdown
 	timings: PipelineTimings | null;
+	// Entity Recall (architectural questions)
+	vectorRecall: number | null; // fraction of expectedEntities in vector top-10
+	hybridRecall: number | null; // fraction in hybrid anchors + refs + answer
 	// Failure
 	failureSite: string | null; // null = no failure
 	failureMessage: string | null;
@@ -150,9 +154,18 @@ async function main() {
 	const structuralCount = typedQuestions.filter(
 		(q) => q.type === "structural",
 	).length;
+	const architecturalCount = typedQuestions.filter(
+		(q) => q.type === "architectural",
+	).length;
+
+	const topKOverride = process.env["TOP_K_OVERRIDE"]
+		? parseInt(process.env["TOP_K_OVERRIDE"], 10)
+		: undefined;
 
 	console.log(
-		`\nRunning benchmark on ${typedQuestions.length} questions (${semanticCount} semantic, ${structuralCount} structural)...\n`,
+		`\nRunning benchmark on ${typedQuestions.length} questions ` +
+			`(${semanticCount} semantic, ${structuralCount} structural, ${architecturalCount} architectural)` +
+			`${topKOverride ? ` [TOP_K_OVERRIDE=${topKOverride}]` : ""}...\n`,
 	);
 
 	for (const q of typedQuestions) {
@@ -182,6 +195,8 @@ async function main() {
 			inputTokens: 0,
 			outputTokens: 0,
 			timings: null,
+			vectorRecall: null,
+			hybridRecall: null,
 			failureSite: null,
 			failureMessage: null,
 		};
@@ -221,6 +236,7 @@ async function main() {
 				llmProvider,
 				classifierProvider,
 				budget: "standard",
+				topK: topKOverride,
 			});
 
 			result.hybridDurationMs = Date.now() - hybridStart;
@@ -264,6 +280,40 @@ async function main() {
 			result.failureMessage = err instanceof Error ? err.message : String(err);
 		}
 
+		// ── 3. Entity Recall (architectural questions) ───────────────────
+		if (q.expectedEntities && q.expectedEntities.length > 0) {
+			const expected = q.expectedEntities;
+
+			// Vector recall: how many expectedEntities appear in top-10 vector results
+			const vecNames = result.vectorTopEntities;
+			const vecMatches = expected.filter((e) =>
+				vecNames.some(
+					(v) =>
+						v.toLowerCase().includes(e.toLowerCase()) ||
+						e.toLowerCase().includes(v.toLowerCase()),
+				),
+			);
+			result.vectorRecall = vecMatches.length / expected.length;
+
+			// Hybrid recall: anchors + referenced nodes + answer text
+			const hybridPool = new Set(
+				[...result.anchorNames].map((n) => n.toLowerCase()),
+			);
+			// Check answer text for entity mentions too
+			const answerLower = result.hybridCorrect ? q.expectedEntity.toLowerCase() : "";
+			const hybridMatches = expected.filter(
+				(e) =>
+					hybridPool.has(e.toLowerCase()) ||
+					[...hybridPool].some(
+						(p) =>
+							p.includes(e.toLowerCase()) ||
+							e.toLowerCase().includes(p),
+					) ||
+					answerLower.includes(e.toLowerCase()),
+			);
+			result.hybridRecall = hybridMatches.length / expected.length;
+		}
+
 		results.push(result);
 
 		// ── Live output ──────────────────────────────────────────────────
@@ -271,8 +321,12 @@ async function main() {
 		const hybridStr = result.hybridCorrect ? "✓" : "✗";
 		const intentStr = result.intentCorrect ? "✓" : "✗";
 		const fallbackStr = result.intentFallback ? " [FALLBACK]" : "";
+		const recallStr =
+			result.vectorRecall != null
+				? ` vRecall=${result.vectorRecall.toFixed(2)} hRecall=${(result.hybridRecall ?? 0).toFixed(2)}`
+				: "";
 		console.log(
-			`vec=${vecStr.padStart(5)} hybrid=${hybridStr} intent=${intentStr}${fallbackStr} (${result.hybridDurationMs}ms)`,
+			`vec=${vecStr.padStart(5)} hybrid=${hybridStr} intent=${intentStr}${fallbackStr}${recallStr} (${result.hybridDurationMs}ms)`,
 		);
 	}
 
@@ -286,6 +340,7 @@ async function main() {
 
 	const semantic = results.filter((r) => r.type === "semantic");
 	const structural = results.filter((r) => r.type === "structural");
+	const architectural = results.filter((r) => r.type === "architectural");
 
 	// ── MRR comparison (semantic only — structural uses exact match) ──────
 	const vectorMRR_semantic = computeMRR(semantic.map((r) => r.vectorRank));
@@ -342,6 +397,34 @@ async function main() {
 	console.log(
 		`    Correct:             ${structuralCorrect}/${structural.length} (${structural.length > 0 ? ((structuralCorrect / structural.length) * 100).toFixed(0) : 0}%)`,
 	);
+
+	// ── Entity Recall (architectural — the hybrid differentiator) ─────
+	if (architectural.length > 0) {
+		const withVecRecall = architectural.filter((r) => r.vectorRecall != null);
+		const withHybRecall = architectural.filter((r) => r.hybridRecall != null);
+		const avgVecRecall =
+			withVecRecall.length > 0
+				? withVecRecall.reduce((s, r) => s + r.vectorRecall!, 0) /
+					withVecRecall.length
+				: 0;
+		const avgHybRecall =
+			withHybRecall.length > 0
+				? withHybRecall.reduce((s, r) => s + r.hybridRecall!, 0) /
+					withHybRecall.length
+				: 0;
+		const recallDelta = avgHybRecall - avgVecRecall;
+
+		console.log(`  Architectural (n=${architectural.length}):`);
+		console.log(
+			`    Vector-only recall:  ${avgVecRecall.toFixed(3)}`,
+		);
+		console.log(
+			`    Hybrid recall:       ${avgHybRecall.toFixed(3)}`,
+		);
+		console.log(
+			`    Delta:               ${recallDelta >= 0 ? "+" : ""}${(recallDelta * 100).toFixed(1)}pp`,
+		);
+	}
 
 	console.log(`\n── Intent Classification ──────────────────────────────`);
 	console.log(
