@@ -233,22 +233,25 @@ function buildCypherFromSpec(spec: StructuralQuerySpec): {
 	let paramIdx = 0;
 
 	if (spec.from.name) {
-		const p = `p${paramIdx++}`;
+		const p = `p${paramIdx}`;
+		paramIdx++;
 		params[p] = spec.from.name;
 		whereClauses.push(`(fromNode.name = $${p} OR fromNode.qualifiedName = $${p})`);
 	}
 	if (spec.from.filePath) {
-		const p = `p${paramIdx++}`;
+		const p = `p${paramIdx}`;
+		paramIdx++;
 		params[p] = spec.from.filePath;
 		whereClauses.push(`(fromNode.filePath CONTAINS $${p} OR fromNode.filePath = $${p})`);
 	}
 	if (spec.to.name) {
-		const p = `p${paramIdx++}`;
+		const p = `p${paramIdx}`;
+		paramIdx++;
 		params[p] = spec.to.name;
 		whereClauses.push(`(toNode.name = $${p} OR toNode.qualifiedName = $${p})`);
 	}
 	if (spec.to.filePath) {
-		const p = `p${paramIdx++}`;
+		const p = `p${paramIdx}`;
 		params[p] = spec.to.filePath;
 		whereClauses.push(`(toNode.filePath CONTAINS $${p} OR toNode.filePath = $${p})`);
 	}

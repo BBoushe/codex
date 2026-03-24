@@ -47,7 +47,6 @@ import {
 	type ComponentNode,
 	type HookNode,
 	type PropNode,
-	type CallsEdge,
 	type UsesHookEdge,
 	type SetsStateEdge,
 } from "@codex/shared";
@@ -1168,7 +1167,7 @@ export class TypeScriptVisitor implements Visitor {
 				? this.extractParameterNames(paramsNode)
 				: new Set<string>();
 
-			let setterToHookId = new Map<string, string>();
+			const setterToHookId = new Map<string, string>();
 			if (isHookName(name)) {
 				const beforeHooks = ctx.entities.length;
 				this.extractHooks(body, name, nodeId, ctx);

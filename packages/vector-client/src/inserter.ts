@@ -12,7 +12,6 @@ import type { Collection } from "chromadb";
 import type { EmbeddingVector } from "@codex/shared";
 import type {
 	EmbeddableEntity,
-	ChromaEntityMetadata,
 	EmbedFailure,
 } from "./types.js";
 
@@ -95,7 +94,7 @@ export async function upsertEmbeddings(
 		try {
 			await collection.upsert({ ids, embeddings, metadatas, documents });
 			upserted += batchEntities.length;
-		} catch (err) {
+		} catch {
 			// If the batch fails, try individual records to isolate the bad ones
 			for (let j = 0; j < batchEntities.length; j++) {
 				const entity = batchEntities[j]!;

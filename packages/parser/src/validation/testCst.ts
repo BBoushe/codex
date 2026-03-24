@@ -14,7 +14,7 @@ interface UserCardProps {
 
 export const UserCard: React.FC<UserCardProps> = ({ userId, onSelect }) => {
   const [user, setUser] = useState<User | null>(null);
-  
+
   useEffect(() => {
     fetchUser(userId).then(setUser);
   }, [userId]);
@@ -37,17 +37,18 @@ export function formatName(first: string, last: string): string {
 
 export class UserService {
   private baseUrl: string;
-  
+
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
-  
+
   async getUser(id: string): Promise<User> {
     return fetch(this.baseUrl + "/users/" + id).then(r => r.json());
   }
 }
 `;
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const code2 = `
 import React, { 
   useState, 

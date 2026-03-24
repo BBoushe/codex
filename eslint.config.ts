@@ -18,7 +18,8 @@ export default defineConfig([
 	// 2. Base Configuration (Node & Bun for Backend/CLI/Packages)
 	{
 		files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
-		extends: [js.configs.recommended, tseslint.configs.recommended as unknown],
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		extends: [js.configs.recommended, tseslint.configs.recommended as any],
 		languageOptions: {
 			globals: {
 				...globals.node,
@@ -37,12 +38,14 @@ export default defineConfig([
 	{
 		files: ["apps/frontend/**/*.{ts,tsx,js,jsx}"],
 		extends: [
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			pluginReact.configs.flat.recommended as any,
 			// If you are using v5.1.0+ of eslint-plugin-react-hooks, you can also extend it directly here:
 			// pluginReactHooks.configs.flat.recommended as any,
 		],
 		plugins: {
 			// 2. Define the plugin namespace
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			"react-hooks": pluginReactHooks as any,
 		},
 		languageOptions: {

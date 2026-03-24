@@ -152,6 +152,7 @@ export async function initializeSchema(
 					`Neo4j schema initialization failed \n` +
 						`Statement:\n${statement.trim()}\n\n` +
 						`Error: ${message}`,
+				{ cause: error },
 				);
 			}
 		}

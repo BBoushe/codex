@@ -136,7 +136,8 @@ function edgeToRow(
 	targetId: string,
 	edge: CodexEdge,
 ): EdgeRow {
-	const { type: _type, ...rest } = edge as Record<string, unknown>;
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const { type, ...rest } = edge as Record<string, unknown>;
 	return {
 		fromId: sourceId,
 		toId: targetId,

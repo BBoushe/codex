@@ -64,7 +64,8 @@ async function main() {
 	for (const f of files) {
 		for (const rel of f.relationships) {
 			const edgeType = rel.edge.type;
-			const { type: _t, ...extraProps } = rel.edge as { type: string } & Record<string, unknown>;
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { type, ...extraProps } = rel.edge as { type: string } & Record<string, unknown>;
 
 			const sourceName = resolveNode(files, rel.sourceId);
 			const targetName = resolveNode(files, rel.targetId);

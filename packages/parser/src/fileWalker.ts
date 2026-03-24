@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join, relative, extname } from "node:path";
 import fs from "node:fs";
 import readLine from "node:readline";
@@ -106,7 +106,6 @@ async function getFileStats(
 ): Promise<{ lines: number; characters: number }> {
 	let lineCount = 0;
 	let charCount = 0;
-	let wordCount = 0;
 
 	const fileStream = fs.createReadStream(filePath, { encoding: "utf-8" });
 	const rl = readLine.createInterface({
@@ -117,7 +116,6 @@ async function getFileStats(
 	for await (const line of rl) {
 		lineCount++;
 		charCount += line.length + 1; // +1 for the newline character
-		wordCount += line.trim().split(/\s+/).filter(Boolean).length;
 	}
 
 	return { lines: lineCount, characters: charCount };
@@ -143,7 +141,7 @@ export async function walkDirectory(
 	const files: SourceFile[] = [];
 	let directoriesVisited = 0;
 	let filesSkipped = 0;
-	let fileStats = { lines: 0, characters: 0 };
+	const fileStats = { lines: 0, characters: 0 };
 
 	/** Recursive inner walk.
 	 * @param dir Absolute path of the directory to walk

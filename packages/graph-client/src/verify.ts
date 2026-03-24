@@ -33,7 +33,7 @@ try {
 	}
 
 	// 3. Delete
-	const deleteResult = await session.run(
+	await session.run(
 		"MATCH (n:Test {name: $name}) DETACH DELETE n",
 		{ name: testName },
 	);
