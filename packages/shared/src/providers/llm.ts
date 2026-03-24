@@ -286,7 +286,7 @@ export function createSiliconFlowLLMProvider(config: {
 	return new OpenAICompatibleLLMProvider({
 		baseURL: `https://api.siliconflow.com/${process.env.SILICONFLOW_API_VERSION || "v1"}`,
 		apiKey: config.apiKey,
-		model: config.model ?? "Qwen/Qwen3-8B",
+		model: config.model ?? "Qwen/Qwen3-Coder-30B-A3B-Instruct",
 		providerName: "siliconflow",
 	});
 }

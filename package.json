@@ -9,14 +9,16 @@
 	"scripts": {
 		"dev:backend": "bun run --watch apps/backend/src/index.ts",
 		"dev:frontend": "bun run --watch apps/frontend/src/index.ts",
-		"infra:up": "docker compose up -d",
-		"infra:down": "docker compose down",
-		"infra:logs": "docker compose logs -f",
+		"infra:up": "docker-compose up -d",
+		"infra:down": "docker-compose down",
+		"infra:logs": "docker-compose logs -f",
 		"verify:embeddings": "bun run packages/shared/src/verifyEmbeddings.ts",
 		"lint": "bun run eslint .",
 		"lint:fix": "bun run eslint . --fix",
 		"cli": "bun run --watch apps/cli/src/index.ts",
-		"build:cli": "bun build apps/cli/src/index.ts --compile --outfile codex"
+		"build:cli": "bun build apps/cli/src/index.ts --compile --outfile codex",
+		"benchmark": "bun run packages/rag/src/benchmark/runBenchmark.ts",
+		"rag:validate": "bun run packages/rag/src/benchmark/validate.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -30,5 +32,8 @@
 	},
 	"peerDependencies": {
 		"typescript": "^5"
+	},
+	"dependencies": {
+		"jiti": "^2.6.1"
 	}
 }

@@ -18,7 +18,7 @@ export default defineConfig([
 	// 2. Base Configuration (Node & Bun for Backend/CLI/Packages)
 	{
 		files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
-		extends: [js.configs.recommended, tseslint.configs.recommended as any],
+		extends: [js.configs.recommended, tseslint.configs.recommended as unknown],
 		languageOptions: {
 			globals: {
 				...globals.node,
@@ -26,6 +26,10 @@ export default defineConfig([
 			},
 			ecmaVersion: "latest",
 			sourceType: "module",
+			parserOptions: {
+				projectService: true,
+				tsconfigRootDir: import.meta.dirname,
+			},
 		},
 	},
 

@@ -8,6 +8,20 @@
  * `embeddingFunction: null` when supplying pre-computed vectors.
  */
 
+// Suppress ChromaDB's "No embedding function configuration found" deserialization
+// warnings. These fire whenever the client deserialises a collection that was
+// created without server-side embedding function metadata — expected when
+// supplying pre-computed vectors directly. The warnings are harmless.
+const _consoleWarn = console.warn.bind(console);
+console.warn = (...args: unknown[]) => {
+	if (
+		typeof args[0] === "string" &&
+		args[0].includes("No embedding function")
+	)
+		return;
+	_consoleWarn(...args);
+};
+
 import { ChromaClient, type Collection, type EmbeddingFunction } from "chromadb";
 
 // ─────────────────────────────────────────────────────────────────────────────
