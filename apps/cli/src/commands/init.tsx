@@ -14,7 +14,8 @@ import os from "node:os";
 import { Box, Text, render, useApp, useInput } from "ink";
 import { Layout } from "../ui/Layout.js";
 import { runIngest } from "./ingest.js";
-import { runAnalyze, runMine, runServe } from "./stubs.js";
+import { runAnalyze, runServe } from "./stubs.js";
+import { runMine } from "./mine.js";
 import { runEmbed } from "./embed.js";
 import { runQuery } from "./query.js";
 import type { PostRunAction } from "../ui/PostRunOptions.js";
@@ -251,9 +252,24 @@ const COMMANDS: CommandDef[] = [
 		detail:
 			"Extracts git history, computes Degree of Authorship, and creates Developer nodes.",
 		phase: "Phase 3",
-		available: false,
-		needsPath: false,
-		options: [],
+		available: true,
+		needsPath: true,
+		options: [
+			{
+				key: "since",
+				flag: "--since",
+				description: "Only commits after this date (ISO 8601)",
+				default: "",
+				available: true,
+			},
+			{
+				key: "clean",
+				flag: "--clean",
+				description: "Wipe existing Developer nodes before mining",
+				default: false,
+				available: true,
+			},
+		],
 	},
 	{
 		name: "serve",
@@ -344,7 +360,9 @@ function CommandPicker({ onSelect, onExit }: PickerProps) {
 						<Text bold color="cyan">
 							codex {active.name}
 						</Text>
-						{active.needsPath && <Text color="gray">&lt;{active.pathLabel ?? "path"}&gt;</Text>}
+						{active.needsPath && (
+							<Text color="gray">&lt;{active.pathLabel ?? "path"}&gt;</Text>
+						)}
 						{!active.available && (
 							<Text color="yellow"> · not yet implemented</Text>
 						)}
@@ -680,7 +698,11 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 				runAnalyze(targetPath);
 				break;
 			case "mine":
-				runMine();
+				runMine(targetPath, {
+					since: opts["since"] ? String(opts["since"]) : undefined,
+					onComplete,
+					nextPhaseLabel: next?.label,
+				});
 				break;
 			case "serve":
 				runServe();

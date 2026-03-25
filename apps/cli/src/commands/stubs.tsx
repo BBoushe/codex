@@ -45,15 +45,6 @@ export function runAnalyze(_targetPath: string) {
 	);
 }
 
-export function runMine() {
-	render(
-		<StubUI
-			command="mine"
-			phase="Phase 3 (Week 9)"
-			description="Extracts git history, computes Degree of Authorship, and creates Developer nodes."
-		/>,
-	);
-}
 
 export function runServe() {
 	render(

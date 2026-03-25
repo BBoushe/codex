@@ -2,7 +2,8 @@
 import { Command } from "commander";
 import { runInit } from "./commands/init.js";
 import { runIngest } from "./commands/ingest.js";
-import { runAnalyze, runMine, runServe } from "./commands/stubs.js";
+import { runAnalyze, runServe } from "./commands/stubs.js";
+import { runMine } from "./commands/mine.js";
 import { runEmbed } from "./commands/embed.js";
 import { runQuery } from "./commands/query.js";
 
@@ -44,11 +45,16 @@ program
 // ─── mine ────────────────────────────────────────────────────────────────────
 
 program
-	.command("mine")
+	.command("mine <path>")
 	.description(
 		"Extract git history and compute developer expertise (requires prior ingest)",
 	)
-	.action(() => runMine());
+	.option("--clean", "wipe existing Developer/Commit nodes before mining", false)
+	.option("--since <date>", "only process commits after this ISO date")
+	.option("--max-commits <n>", "cap the number of commits processed", (v) => parseInt(v, 10))
+	.action((targetPath: string, options: { clean: boolean; since?: string; maxCommits?: number }) => {
+		runMine(targetPath, options);
+	});
 
 // ─── embed ───────────────────────────────────────────────────────────────────
 

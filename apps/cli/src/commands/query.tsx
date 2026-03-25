@@ -32,6 +32,7 @@ import {
 	type StructuralSearchResult,
 	type HybridSearchResult,
 	type SocialSearchResult,
+	type FileChurnInfo,
 } from "@codex/rag";
 import { Layout } from "../ui/Layout.js";
 import { PostRunOptions, type PostRunAction } from "../ui/PostRunOptions.js";
@@ -179,32 +180,43 @@ function HybridResult({ result }: { result: HybridSearchResult }) {
 }
 
 function SocialResult({ result }: { result: SocialSearchResult }) {
-	if (result.message) {
-		return (
-			<Box marginTop={1}>
-				<Text color="yellow">{result.message}</Text>
-			</Box>
-		);
-	}
-
 	return (
-		<Box flexDirection="column" marginTop={1} gap={0}>
-			<Text bold color="cyan">
-				Developers with expertise in "{result.query}"
-			</Text>
-			{result.developers.map((dev, i) => (
-				<Box key={i} gap={2} paddingLeft={2}>
-					<Text color="green">•</Text>
-					<Text bold>{dev.name}</Text>
-					<Text dimColor>
-						{"<"}
-						{dev.email}
-						{">"}
-					</Text>
-					<Text color="cyan">DOA={dev.doaScore.toFixed(3)}</Text>
-					{dev.isFirstAuthor && <Text color="yellow">[first author]</Text>}
+		<Box flexDirection="column" marginTop={1} gap={1}>
+			<Text bold color="cyan">Answer</Text>
+			<Box borderStyle="round" borderColor="gray" paddingX={2} paddingY={1} flexDirection="column">
+				<Text>{result.answer}</Text>
+			</Box>
+			{result.developers.length > 0 && (
+				<Box flexDirection="column" gap={0} marginTop={1}>
+					<Text bold dimColor>Developer expertise data</Text>
+					{result.developers.map((dev, i) => (
+						<Box key={i} flexDirection="column" paddingLeft={2}>
+							<Box gap={2}>
+								<Text color="green">•</Text>
+								<Text bold>{dev.name}</Text>
+								<Text dimColor>{"<"}{dev.email}{">"}</Text>
+								<Text dimColor>DOA={dev.doaScore.toFixed(3)}</Text>
+								{dev.isFirstAuthor && <Text dimColor>[first author]</Text>}
+							</Box>
+							{dev.topFiles.map((f) => (
+								<Text key={f} dimColor>    {f}</Text>
+							))}
+						</Box>
+					))}
 				</Box>
-			))}
+			)}
+			{result.files.length > 0 && (
+				<Box flexDirection="column" gap={0} marginTop={1}>
+					<Text bold dimColor>File churn data</Text>
+					{result.files.map((f: FileChurnInfo) => (
+						<Box key={f.path} gap={2} paddingLeft={2}>
+							<Text dimColor>•</Text>
+							<Text dimColor>{f.path}</Text>
+							<Text dimColor>{f.totalCommits} commits, churn={f.churnRate.toFixed(1)}/mo</Text>
+						</Box>
+					))}
+				</Box>
+			)}
 		</Box>
 	);
 }
@@ -318,7 +330,7 @@ function QueryUI({ question, options }: QueryUIProps) {
 							? `hybrid (${result.result.anchors.length} anchors)`
 							: result.kind,
 				},
-				...(result.kind === "hybrid"
+				...(result.kind === "hybrid" || result.kind === "social"
 					? [
 							{ label: "Model", value: result.result.model },
 							{

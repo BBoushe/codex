@@ -9,6 +9,7 @@
 		"start": "NODE_ENV=production bun src/index.ts"
 	},
 	"dependencies": {
+		"@codex/git-miner": "workspace:*",
 		"@codex/graph-client": "workspace:*",
 		"@codex/parser": "workspace:*",
 		"@codex/rag": "workspace:*",
