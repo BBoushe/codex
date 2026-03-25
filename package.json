@@ -8,7 +8,7 @@
 	],
 	"scripts": {
 		"dev:backend": "bun run --watch apps/backend/src/index.ts",
-		"dev:frontend": "bun run --watch apps/frontend/src/index.ts",
+		"dev:frontend": "bun run --watch apps/frontend/src/main.tsx",
 		"infra:up": "docker-compose up -d",
 		"infra:down": "docker-compose down",
 		"infra:logs": "docker-compose logs -f",
