@@ -583,7 +583,7 @@ async function testEndToEnd(
 			const result = await runSearch("Who wrote the auth module?", opts);
 			if (result.kind === "social") {
 				return {
-					detail: `kind=social devs=${result.result.developers.length} msg=${result.result.message ?? "none"}`,
+					detail: `kind=social devs=${result.result.developers.length} answer=${result.result.answer.slice(0, 60)}`,
 					timings: result.timings,
 				};
 			}

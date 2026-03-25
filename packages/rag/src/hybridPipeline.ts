@@ -16,6 +16,7 @@
 import type { Driver } from "neo4j-driver";
 import type { ChromaClient } from "chromadb";
 import type { EmbeddingProvider, LLMProvider } from "@codex/shared";
+import { tokenTracker } from "@codex/shared";
 import {
 	getOrCreateEntityCollection,
 	searchEntities,
@@ -28,6 +29,7 @@ import type {
 	SearchResult,
 	HybridSearchResult,
 	SocialSearchResult,
+	FileChurnInfo,
 	QueryIntent,
 	ExpansionOptions,
 	ContextBudget,
@@ -113,7 +115,7 @@ export async function runSearch(
 
 	if (intent.kind === "social") {
 		const neoStart = Date.now();
-		const result = await runSocialSearch(query, intent, options.driver);
+		const result = await runSocialSearch(query, intent, options.driver, options.llmProvider);
 		timings.graphExpansionMs = Date.now() - neoStart;
 		timings.totalMs = Date.now() - totalStart;
 		return { kind: "social", result, intent, timings };
@@ -236,51 +238,160 @@ export async function runHybridSearch(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Social search (stub — Phase 3 git mining)
+// Social search
 // ─────────────────────────────────────────────────────────────────────────────
+
+const SOCIAL_SYSTEM_PROMPT = `You are CODEX, a code analysis assistant. You answer questions about developers and their contributions to a codebase based on git mining data (Degree of Authorship scores, commit history, file ownership).
+
+Rules:
+- Answer clearly and concisely in plain English.
+- DOA (Degree of Authorship) scores range 0–1; higher means more ownership.
+- "First author" means this developer made the first commit to that file.
+- If asked who to contact about a file or module, recommend the developer with the highest DOA score.
+- Do NOT hallucinate contributions not present in the data.`;
 
 async function runSocialSearch(
 	query: string,
 	intent: Extract<QueryIntent, { kind: "social" }>,
 	driver: Driver,
+	llmProvider: LLMProvider,
 ): Promise<SocialSearchResult> {
 	const session = driver.session({ database: "neo4j" });
 
 	try {
-		const result = await session.run(
+		const nameFilter = intent.extractedName.trim();
+
+		// Determine if the extracted name looks like a file/path reference or a person
+		const looksLikeFile = nameFilter !== "" && (nameFilter.includes(".") || nameFilter.includes("/"));
+
+		// ── Developer query ──────────────────────────────────────────────────
+		const devResult = await session.run(
 			`
 			MATCH (dev:Developer)-[exp:HAS_EXPERTISE]->(f:File)
-			WHERE f.filePath CONTAINS $name
+			WHERE $name = ''
+			   OR toLower(dev.name) CONTAINS toLower($name)
+			   OR toLower(dev.email) CONTAINS toLower($name)
+			   OR toLower(f.filePath) CONTAINS toLower($name)
 			RETURN dev.name AS name, dev.email AS email,
 			       exp.doaScore AS doaScore, exp.isFirstAuthor AS isFirstAuthor,
-			       exp.lastContribution AS lastContribution
+			       exp.lastContribution AS lastContribution,
+			       f.filePath AS filePath
 			ORDER BY exp.doaScore DESC
-			LIMIT 10
+			LIMIT 50
 			`,
-			{ name: intent.extractedName },
+			{ name: nameFilter },
 		);
 
-		const developers = result.records
-			.map((record) => ({
-				name: record.get("name") as string,
-				email: record.get("email") as string,
-				doaScore: (record.get("doaScore") as number | null) ?? 0,
-				isFirstAuthor:
-					(record.get("isFirstAuthor") as boolean | null) ?? false,
-				lastContribution: record.get("lastContribution") as string | null,
-			}))
-			.filter((d) => d.name !== null);
-
-		if (developers.length === 0) {
-			return {
-				query,
-				developers: [],
-				message:
-					"No developer data found. Run `codex mine` to populate expertise data from git history.",
-			};
+		// Group rows by developer (one row per developer×file)
+		const devMap = new Map<string, {
+			name: string; email: string; isFirstAuthor: boolean;
+			lastContribution: string | null; files: Array<{ path: string; doa: number }>;
+		}>();
+		for (const record of devResult.records) {
+			const email = record.get("email") as string;
+			if (!email) continue;
+			const filePath = record.get("filePath") as string;
+			const doa = (record.get("doaScore") as number | null) ?? 0;
+			const existing = devMap.get(email);
+			if (existing) {
+				existing.files.push({ path: filePath, doa });
+			} else {
+				devMap.set(email, {
+					name: record.get("name") as string,
+					email,
+					isFirstAuthor: (record.get("isFirstAuthor") as boolean | null) ?? false,
+					lastContribution: record.get("lastContribution") as string | null,
+					files: [{ path: filePath, doa }],
+				});
+			}
 		}
 
-		return { query, developers };
+		const developers = Array.from(devMap.values()).map((dev) => {
+			const sorted = dev.files.sort((a, b) => b.doa - a.doa);
+			const avgDoa = sorted.reduce((s, f) => s + f.doa, 0) / (sorted.length || 1);
+			return {
+				name: dev.name,
+				email: dev.email,
+				doaScore: avgDoa,
+				isFirstAuthor: dev.isFirstAuthor,
+				lastContribution: dev.lastContribution,
+				topFiles: sorted.slice(0, 5).map((f) => f.path),
+			};
+		}).sort((a, b) => b.doaScore - a.doaScore);
+
+		// ── Churn query ──────────────────────────────────────────────────────
+		// Run for: empty name (hotspot queries), or file-centric names.
+		// Skip for: person-centric names (e.g. "Alice") — dev query handles those.
+		const files: FileChurnInfo[] = [];
+		const runChurnQuery = nameFilter === "" || looksLikeFile;
+		if (runChurnQuery) {
+			const churnCypher = looksLikeFile
+				? `MATCH (f:File) WHERE toLower(f.filePath) CONTAINS toLower($name)
+				   AND f.totalCommits IS NOT NULL
+				   RETURN f.filePath AS filePath, f.totalCommits AS totalCommits,
+				          f.totalAdded AS totalAdded, f.totalDeleted AS totalDeleted,
+				          f.churnRate AS churnRate
+				   ORDER BY f.totalCommits DESC LIMIT 10`
+				: `MATCH (f:File) WHERE f.totalCommits IS NOT NULL
+				   RETURN f.filePath AS filePath, f.totalCommits AS totalCommits,
+				          f.totalAdded AS totalAdded, f.totalDeleted AS totalDeleted,
+				          f.churnRate AS churnRate
+				   ORDER BY f.totalCommits DESC LIMIT 20`;
+			const churnResult = await session.run(churnCypher, { name: nameFilter });
+			for (const record of churnResult.records) {
+				files.push({
+					path: record.get("filePath") as string,
+					totalCommits: (record.get("totalCommits") as number | null) ?? 0,
+					totalAdded: (record.get("totalAdded") as number | null) ?? 0,
+					totalDeleted: (record.get("totalDeleted") as number | null) ?? 0,
+					churnRate: (record.get("churnRate") as number | null) ?? 0,
+				});
+			}
+		}
+
+		if (developers.length === 0 && files.length === 0) {
+			const synthesis = await llmProvider.generate(
+				[
+					{ role: "system", content: SOCIAL_SYSTEM_PROMPT },
+					{ role: "user", content: `--- QUESTION ---\n${query}\n\nNo developer or file data was found in the graph. The user should run \`codex mine\` first.` },
+				],
+				{ maxTokens: 256, temperature: 0.2 },
+			);
+			tokenTracker.add({ llmInput: synthesis.usage.inputTokens, llmOutput: synthesis.usage.outputTokens });
+			return { query, developers: [], files: [], answer: synthesis.content, model: synthesis.model, usage: synthesis.usage };
+		}
+
+		// ── Build LLM context ────────────────────────────────────────────────
+		const contextParts: string[] = [];
+
+		if (developers.length > 0) {
+			const devLines = developers.map((dev) => {
+				const fa = dev.isFirstAuthor ? " (first author)" : "";
+				const last = dev.lastContribution ? `, last contributed ${dev.lastContribution}` : "";
+				return `- ${dev.name} <${dev.email}>${fa}: DOA score ${dev.doaScore.toFixed(3)}${last}, top files: ${dev.topFiles.join(", ")}`;
+			});
+			contextParts.push(`Developer expertise data from git history:\n${devLines.join("\n")}`);
+		}
+
+		if (files.length > 0) {
+			const fileLines = files.map((f) =>
+				`- ${f.path}: ${f.totalCommits} commits, +${f.totalAdded}/-${f.totalDeleted} lines, churn rate ${f.churnRate.toFixed(1)}/month`,
+			);
+			contextParts.push(`File churn data from git history:\n${fileLines.join("\n")}`);
+		}
+
+		const context = contextParts.join("\n\n");
+
+		const synthesis = await llmProvider.generate(
+			[
+				{ role: "system", content: SOCIAL_SYSTEM_PROMPT },
+				{ role: "user", content: `--- DATA ---\n${context}\n\n--- QUESTION ---\n${query}` },
+			],
+			{ maxTokens: 512, temperature: 0.2 },
+		);
+		tokenTracker.add({ llmInput: synthesis.usage.inputTokens, llmOutput: synthesis.usage.outputTokens });
+
+		return { query, developers, files, answer: synthesis.content, model: synthesis.model, usage: synthesis.usage };
 	} finally {
 		await session.close();
 	}

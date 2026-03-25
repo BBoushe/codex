@@ -128,12 +128,36 @@ export interface HybridSearchResult {
 	durationMs: number;
 }
 
+export interface SocialDeveloper {
+	name: string;
+	email: string;
+	/** Average DOA score across their top files. */
+	doaScore: number;
+	isFirstAuthor: boolean;
+	lastContribution: string | null;
+	/** Top files by DOA score (up to 5). */
+	topFiles: string[];
+}
+
+/** Per-file churn metrics from git history (stored as File node properties). */
+export interface FileChurnInfo {
+	path: string;
+	totalCommits: number;
+	totalAdded: number;
+	totalDeleted: number;
+	churnRate: number;
+}
+
 /** Result from social/developer queries. */
 export interface SocialSearchResult {
 	query: string;
-	developers: import("@codex/graph-client").DeveloperExpertise[];
-	/** Stub message when Phase 3 (git mining) not yet complete. */
-	message?: string;
+	developers: SocialDeveloper[];
+	/** Top files by commit count — populated for churn/hotspot queries. */
+	files: FileChurnInfo[];
+	/** LLM-synthesized prose answer. Also used for error messages. */
+	answer: string;
+	model: string;
+	usage: { inputTokens: number; outputTokens: number };
 }
 
 /** Multi-hop path result (Week 8). */

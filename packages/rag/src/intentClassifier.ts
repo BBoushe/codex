@@ -75,8 +75,8 @@ There are three routing options:
    The "from" side is the unknown result when direction is "incoming". The "to" side is the unknown result when direction is "outgoing".
    Omit fields you don't need (e.g. if no label constraint, omit "label"). Use the edge types from the schema above.
 
-2. **social** — The question is about people: who wrote code, who has expertise, who to ask about something.
-   Output: { "kind": "social", "extractedName": "<module or entity name>" }
+2. **social** — The question is about people, developer activity, code churn, or hotspots: who wrote code, who has expertise, who to ask about something, which files change the most, what are the hotspots.
+   Output: { "kind": "social", "extractedName": "<developer name, file/module name if mentioned, otherwise empty string>" }
 
 3. **hybrid** — The question describes behavior, asks about concepts, or requires understanding what code DOES.
    This is the default for any question that doesn't name a specific entity or ask about people.
