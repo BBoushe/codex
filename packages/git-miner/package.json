@@ -9,6 +9,12 @@
 	},
 	"type": "module",
 	"private": true,
+	"dependencies": {
+		"simple-git": "^3.27.0",
+		"@codex/shared": "workspace:*",
+		"@codex/graph-client": "workspace:*",
+		"neo4j-driver": "^6.0.1"
+	},
 	"devDependencies": {
 		"@types/bun": "latest"
 	},
