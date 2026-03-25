@@ -17,6 +17,7 @@
 
 import type { Driver, Session } from "neo4j-driver";
 import type { FileParseResult, CodexNode, CodexEdge } from "@codex/shared";
+import { nodeIdForDeveloper, nodeIdForCommit } from "@codex/shared";
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -269,6 +270,23 @@ export async function insertParseResults(
 // ---------------------------------------------------------------------------
 
 /**
+ * Wipe all mining data (Developer/Commit nodes + their edges, churn props on
+ * File nodes) while leaving the structural graph intact.
+ */
+export async function clearMineData(driver: Driver): Promise<void> {
+	const session = driver.session();
+	try {
+		await session.run("MATCH (d:Developer) DETACH DELETE d");
+		await session.run("MATCH (c:Commit) DETACH DELETE c");
+		await session.run(
+			"MATCH (f:File) REMOVE f.totalCommits, f.totalAdded, f.totalDeleted, f.churnRate",
+		);
+	} finally {
+		await session.close();
+	}
+}
+
+/**
  * Drop all nodes and relationships. On large graphs this is slower than
  * dropping the database, but works without Community Edition admin privileges.
  */
@@ -280,3 +298,266 @@ export async function clearGraph(driver: Driver): Promise<void> {
 		await session.close();
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Mine result types (defined here to avoid circular dep with @codex/git-miner)
+// ---------------------------------------------------------------------------
+
+/** An entity node with its source line range. Returned by fetchEntityLineRanges(). */
+export interface EntityLineRange {
+	nodeId: string;
+	filePath: string;
+	startLine: number;
+	endLine: number;
+	label: string;
+}
+
+/** Stats returned by insertMineResults(). */
+export interface MineInsertStats {
+	developersInserted: number;
+	commitsInserted: number;
+	committedEdges: number;
+	modifiedEdges: number;
+	expertiseEdges: number;
+	churnFilesUpdated: number;
+	durationMs: number;
+}
+
+/**
+ * Shape expected by insertMineResults(). Mirrors git-miner's MineResult
+ * without a direct import to avoid circular package dependency.
+ */
+export interface MineInsertInput {
+	developers: Array<{ email: string; name: string; totalCommits: number }>;
+	commits: Array<{
+		sha: string;
+		message: string;
+		timestamp: string;
+		authorEmail: string;
+		linesAdded: number;
+		linesDeleted: number;
+	}>;
+	committedEdges: Array<{ developerEmail: string; commitSha: string }>;
+	modifiedEdges: Array<{ commitSha: string; entityNodeId: string; linesAdded: number; linesDeleted: number }>;
+	fileExpertise: Array<{
+		developerEmail: string;
+		fileNodeId: string;
+		doaScore: number;
+		isFirstAuthor: boolean;
+		deliveries: number;
+		acceptances: number;
+		lastContribution: string;
+	}>;
+	churn: Array<{
+		fileNodeId: string;
+		totalCommits: number;
+		totalAdded: number;
+		totalDeleted: number;
+		churnRate: number;
+	}>;
+}
+
+// ---------------------------------------------------------------------------
+// Mine insertion
+// ---------------------------------------------------------------------------
+
+/**
+ * insertMineResults — batch-write git mining output into Neo4j.
+ *
+ * Three passes:
+ *   Pass 1 — Developer + Commit nodes
+ *   Pass 2 — COMMITTED, MODIFIED, HAS_EXPERTISE edges
+ *   Pass 3 — File property updates (churn metrics)
+ *
+ * Depends on File/entity nodes from a prior insertParseResults() call.
+ * MODIFIED edges whose target nodeId is absent will silently fail (MATCH miss);
+ * this is expected for deleted files.
+ */
+export async function insertMineResults(
+	driver: Driver,
+	input: MineInsertInput,
+): Promise<MineInsertStats> {
+	const t0 = Date.now();
+	const session: Session = driver.session();
+
+	try {
+		// ── Pass 1: Developer nodes ────────────────────────────────────────────
+		const devRows = input.developers.map((d) =>
+			stripUndefined({
+				nodeId: nodeIdForDeveloper(d.email),
+				name: d.name,
+				email: d.email,
+				qualifiedName: d.email,
+				totalCommits: d.totalCommits,
+				label: "Developer",
+			}),
+		);
+		await writeNodeBatch(session, "Developer", devRows as NodeRow[]);
+
+		// ── Pass 1: Commit nodes ───────────────────────────────────────────────
+		const commitRows = input.commits.map((c) =>
+			stripUndefined({
+				nodeId: nodeIdForCommit(c.sha),
+				name: c.sha.slice(0, 8),
+				qualifiedName: c.sha.slice(0, 8),
+				sha: c.sha,
+				message: c.message.slice(0, 200), // cap length for storage
+				timestamp: c.timestamp,
+				linesAdded: c.linesAdded,
+				linesDeleted: c.linesDeleted,
+				label: "Commit",
+			}),
+		);
+		await writeNodeBatch(session, "Commit", commitRows as NodeRow[]);
+
+		// ── Pass 2: COMMITTED edges ────────────────────────────────────────────
+		const committedRows: EdgeRow[] = input.committedEdges.map((e) => ({
+			fromId: nodeIdForDeveloper(e.developerEmail),
+			toId: nodeIdForCommit(e.commitSha),
+			props: {},
+		}));
+		await writeEdgeBatch(session, "COMMITTED", committedRows);
+
+		// ── Pass 2: MODIFIED edges ─────────────────────────────────────────────
+		const modifiedRows: EdgeRow[] = input.modifiedEdges.map((e) => ({
+			fromId: nodeIdForCommit(e.commitSha),
+			toId: e.entityNodeId,
+			props: stripUndefined({ linesAdded: e.linesAdded, linesDeleted: e.linesDeleted }),
+		}));
+		await writeEdgeBatch(session, "MODIFIED", modifiedRows);
+
+		// ── Pass 2: HAS_EXPERTISE edges ────────────────────────────────────────
+		const expertiseRows: EdgeRow[] = input.fileExpertise.map((e) => ({
+			fromId: nodeIdForDeveloper(e.developerEmail),
+			toId: e.fileNodeId,
+			props: stripUndefined({
+				doaScore: e.doaScore,
+				isFirstAuthor: e.isFirstAuthor,
+				deliveries: e.deliveries,
+				acceptances: e.acceptances,
+				lastContribution: e.lastContribution,
+			}),
+		}));
+		await writeEdgeBatch(session, "HAS_EXPERTISE", expertiseRows);
+
+		// ── Pass 3: File churn property updates ───────────────────────────────
+		const churnRows = input.churn.map((c) =>
+			stripUndefined({
+				fileNodeId: c.fileNodeId,
+				totalCommits: c.totalCommits,
+				totalAdded: c.totalAdded,
+				totalDeleted: c.totalDeleted,
+				churnRate: c.churnRate,
+			}),
+		);
+
+		if (churnRows.length > 0) {
+			const churnCypher = `
+        UNWIND $batch AS row
+        MATCH (f:File {nodeId: row.fileNodeId})
+        SET f.totalCommits = row.totalCommits,
+            f.totalAdded   = row.totalAdded,
+            f.totalDeleted = row.totalDeleted,
+            f.churnRate    = row.churnRate
+      `;
+			for (const batch of chunk(churnRows, BATCH_SIZE)) {
+				await session.run(churnCypher, { batch });
+			}
+		}
+
+		return {
+			developersInserted: devRows.length,
+			commitsInserted: commitRows.length,
+			committedEdges: committedRows.length,
+			modifiedEdges: modifiedRows.length,
+			expertiseEdges: expertiseRows.length,
+			churnFilesUpdated: churnRows.length,
+			durationMs: Date.now() - t0,
+		};
+	} finally {
+		await session.close();
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Entity line range reader (used by git-miner's blame mapper)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches entity nodes with source line ranges for a given file.
+ * Called by the git-miner orchestrator to map blame data to graph entities.
+ *
+ * @param driver   - Neo4j driver (must have entities from a prior ingest run)
+ * @param filePath - Relative file path (as stored on File nodes)
+ */
+export async function fetchEntityLineRanges(
+	driver: Driver,
+	filePath: string,
+): Promise<EntityLineRange[]> {
+	const session = driver.session();
+	try {
+		const result = await session.run(
+			`
+      MATCH (n)-[:DEFINED_IN]->(f:File {filePath: $filePath})
+      WHERE n.startLine IS NOT NULL AND n.endLine IS NOT NULL
+      RETURN n.nodeId AS nodeId,
+             n.filePath AS filePath,
+             n.startLine AS startLine,
+             n.endLine AS endLine,
+             labels(n)[0] AS label
+      `,
+			{ filePath },
+		);
+
+		return result.records.map((r) => ({
+			nodeId: r.get("nodeId") as string,
+			filePath: r.get("filePath") as string,
+			startLine: (r.get("startLine") as number),
+			endLine: (r.get("endLine") as number),
+			label: r.get("label") as string,
+		}));
+	} finally {
+		await session.close();
+	}
+}
+
+/**
+ * Returns the count of File nodes in the graph.
+ * Used by the mine orchestrator to validate that ingest has been run first.
+ */
+export async function countFileNodes(driver: Driver): Promise<number> {
+	const session = driver.session();
+	try {
+		const result = await session.run(
+			"MATCH (f:File) RETURN count(f) AS cnt",
+		);
+		return (result.records[0]?.get("cnt") as number) ?? 0;
+	} finally {
+		await session.close();
+	}
+}
+
+/**
+ * Fetches all File nodeIds keyed by filePath.
+ * Used by computeChurn() to map git file paths to graph nodeIds.
+ */
+export async function fetchFileNodeIds(
+	driver: Driver,
+): Promise<Map<string, string>> {
+	const session = driver.session();
+	try {
+		const result = await session.run(
+			"MATCH (f:File) RETURN f.filePath AS filePath, f.nodeId AS nodeId",
+		);
+		const map = new Map<string, string>();
+		for (const record of result.records) {
+			const fp = record.get("filePath") as string;
+			const nodeId = record.get("nodeId") as string;
+			if (fp && nodeId) map.set(fp, nodeId);
+		}
+		return map;
+	} finally {
+		await session.close();
+	}
+}
+

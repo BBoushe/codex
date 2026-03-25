@@ -1,5 +1,17 @@
 export { initializeSchema } from "./initialize-schema";
-export { insertParseResults, clearGraph, type InsertStats } from "./inserter";
+export {
+	insertParseResults,
+	clearGraph,
+	clearMineData,
+	insertMineResults,
+	fetchEntityLineRanges,
+	fetchFileNodeIds,
+	countFileNodes,
+	type InsertStats,
+	type MineInsertStats,
+	type MineInsertInput,
+	type EntityLineRange,
+} from "./inserter";
 export {
 	expandContext,
 	structuralQuery,
