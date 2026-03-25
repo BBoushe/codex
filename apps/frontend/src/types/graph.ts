@@ -1,0 +1,55 @@
+/**
+ * @fileoverview Types for the graph visualization layer.
+ *
+ * Used by the HEB (Week 12) and force-directed graph (Week 13).
+ * Matches the response shape of GET /api/graph/hierarchy.
+ */
+
+export type HierarchyNodeType =
+	| "directory"
+	| "file"
+	| "function"
+	| "class"
+	| "component"
+	| "hook"
+	| "interface"
+	| "decorator";
+
+export interface HierarchyNode {
+	/** nodeId for entities; directory path or filePath for structural nodes. */
+	id: string;
+	name: string;
+	type: HierarchyNodeType;
+	/** Top-level directory segment — used for categorical color coding. */
+	module: string;
+	language?: string;
+	/** File-level churn rate (commits per month over last 6 months). */
+	churnRate?: number;
+	/** Max DOA score of any developer for this file. */
+	doaScore?: number;
+	children?: HierarchyNode[];
+}
+
+export interface HierarchyEdge {
+	/** nodeId of the source entity. */
+	source: string;
+	/** nodeId of the target entity. */
+	target: string;
+	/** Edge type: CALLS, IMPORTS, RENDERS, USES_HOOK, INHERITS, IMPLEMENTS. */
+	type: string;
+}
+
+export interface HierarchyResponse {
+	tree: HierarchyNode;
+	edges: HierarchyEdge[];
+}
+
+export type ColorMode = "module" | "churn" | "doa";
+
+export interface HebOptions {
+	edgeTypeFilter: string[];
+	colorMode: ColorMode;
+	moduleFilter: string | null;
+	onNodeHover: (nodeId: string | null) => void;
+	onNodeClick: (nodeId: string) => void;
+}

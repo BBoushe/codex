@@ -1,35 +1,36 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+/**
+ * @fileoverview Root layout — three-zone grid: TopBar / MainArea / SidePanel.
+ *
+ * Grid layout:
+ *   Rows:    56px (top bar) | 1fr (content)
+ *   Columns: 1fr (graph canvas) | 380px (side panel)
+ */
 
-function App() {
-  const [count, setCount] = useState(0)
+import { TopBar } from "@/components/layout/topBar";
+import { MainArea } from "@/components/layout/mainArea";
+import { SidePanel } from "@/components/layout/sidePanel";
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+export function App() {
+	return (
+		<div
+			style={{
+				display: "grid",
+				gridTemplateRows: "56px 1fr",
+				gridTemplateColumns: "1fr 380px",
+				height: "100vh",
+				overflow: "hidden",
+			}}
+		>
+			{/* Row 1 — full width */}
+			<div style={{ gridColumn: "1 / -1" }}>
+				<TopBar />
+			</div>
+
+			{/* Row 2 col 1 */}
+			<MainArea />
+
+			{/* Row 2 col 2 */}
+			<SidePanel />
+		</div>
+	);
 }
-
-export default App
