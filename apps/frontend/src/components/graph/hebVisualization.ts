@@ -185,7 +185,7 @@ function render(
 				.attr("transform", isRightHalf ? "" : "rotate(180)")
 				.text(truncate(d.data.name, 20));
 		})
-		.on("mouseenter", function (event, d) {
+		.on("mouseenter", function (_event, d) {
 			// Highlight connected edges
 			const nodeId = d.data.id;
 			edgePaths
@@ -209,6 +209,29 @@ function render(
 		.on("click", (_event, d) => {
 			options.onNodeClick(d.data.id);
 		});
+
+	// Draw highlight rings for search-matched nodes
+	if (options.highlightedNodeIds.size > 0) {
+		const highlightedLeaves = leaves.filter((d) =>
+			options.highlightedNodeIds.has(d.data.id),
+		);
+		nodeGroup
+			.selectAll<SVGCircleElement, LeafNode>("circle.highlight-ring")
+			.data(highlightedLeaves, (d) => d.data.id)
+			.join("circle")
+			.attr("class", "highlight-ring")
+			.attr("transform", (d) => {
+				const [px, py] = radialPoint(d.x, d.y);
+				const angle = (d.x * 180) / Math.PI - 90;
+				return `translate(${px},${py}) rotate(${angle})`;
+			})
+			.attr("r", 7)
+			.attr("fill", "none")
+			.attr("stroke", "#facc15")
+			.attr("stroke-width", 2)
+			.attr("opacity", 0.8)
+			.attr("pointer-events", "none");
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

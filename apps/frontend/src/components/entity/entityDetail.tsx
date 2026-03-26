@@ -2,9 +2,10 @@
  * @fileoverview Full entity detail view: source code, metadata, relationships, developers.
  */
 
-import { ArrowLeft, Loader2, User } from "lucide-react";
+import { ArrowLeft, Compass, Loader2, User } from "lucide-react";
 import { useEntityStore } from "@/stores/entityStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useForceStore } from "@/stores/forceStore";
 import { LabelBadge } from "@/components/search/labelBadge";
 import { SourceViewer } from "./sourceViewer";
 import { RelationshipList } from "./relationshipList";
@@ -14,6 +15,7 @@ import type { RelatedEntity } from "@/types/api";
 export function EntityDetail() {
 	const { expandedContext, isLoading, error, clearSelection } = useEntityStore();
 	const setSidePanelMode = useUiStore((s) => s.setSidePanelMode);
+	const setMainAreaMode = useUiStore((s) => s.setMainAreaMode);
 
 	function handleBack() {
 		clearSelection();
@@ -73,6 +75,16 @@ export function EntityDetail() {
 					<h2 className="text-sm font-semibold text-[--color-text] truncate">
 						{target.name}
 					</h2>
+					<button
+						onClick={() => {
+							setMainAreaMode("force");
+							useForceStore.getState().fetchSubgraph(target.nodeId, 2);
+						}}
+						className="ml-auto shrink-0 flex items-center gap-1 px-2 py-1 rounded text-[10px] text-[--color-accent] border border-[--color-accent]/30 hover:bg-[--color-accent]/10 transition-colors"
+						title="Explore neighborhood"
+					>
+						<Compass size={12} /> Explore
+					</button>
 				</div>
 				<p className="text-[11px] text-[--color-text-muted] font-mono truncate">
 					{target.filePath}

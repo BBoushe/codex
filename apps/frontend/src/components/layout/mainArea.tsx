@@ -11,6 +11,7 @@ import { Network, Loader2 } from "lucide-react";
 import { useUiStore } from "@/stores/uiStore";
 import { useGraphStore } from "@/stores/graphStore";
 import { HebContainer } from "@/components/graph/hebContainer";
+import { ForceGraph } from "@/components/graph/forceGraph";
 import { cn } from "@/lib/utils";
 
 function GraphPlaceholder() {
@@ -61,16 +62,6 @@ function GraphPlaceholder() {
 	);
 }
 
-function ForcePlaceholder() {
-	return (
-		<div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
-			<p className="text-sm text-[--color-text-muted]">
-				Force-directed graph — coming in Week 13.
-			</p>
-		</div>
-	);
-}
-
 export function MainArea() {
 	const mainAreaMode = useUiStore((s) => s.mainAreaMode);
 
@@ -78,7 +69,7 @@ export function MainArea() {
 		<main className="relative flex-1 h-full overflow-hidden bg-[--color-background]">
 			{mainAreaMode === "placeholder" && <GraphPlaceholder />}
 			{mainAreaMode === "heb" && <HebContainer />}
-			{mainAreaMode === "force" && <ForcePlaceholder />}
+			{mainAreaMode === "force" && <ForceGraph />}
 		</main>
 	);
 }

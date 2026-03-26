@@ -16,6 +16,7 @@ import type {
 	ExpandedContext,
 	FileTreeNode,
 	SearchResult,
+	SubgraphResponse,
 } from "@/types/api";
 import type { HierarchyResponse } from "@/types/graph";
 
@@ -117,6 +118,18 @@ export function fetchHierarchy(): Promise<ApiResult<HierarchyResponse>> {
  */
 export function fetchBrowseTree(): Promise<ApiResult<FileTreeNode[]>> {
 	return request<FileTreeNode[]>("/api/browse/tree");
+}
+
+/**
+ * Fetches a neighborhood subgraph around a center node for the force-directed explorer.
+ */
+export function fetchSubgraph(
+	nodeId: string,
+	depth = 2,
+): Promise<ApiResult<SubgraphResponse>> {
+	return request<SubgraphResponse>(
+		`/api/graph/subgraph?nodeId=${encodeURIComponent(nodeId)}&depth=${depth}`,
+	);
 }
 
 /**

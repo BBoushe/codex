@@ -50,6 +50,28 @@ export interface HebOptions {
 	edgeTypeFilter: string[];
 	colorMode: ColorMode;
 	moduleFilter: string | null;
+	highlightedNodeIds: Set<string>;
 	onNodeHover: (nodeId: string | null) => void;
 	onNodeClick: (nodeId: string) => void;
+}
+
+/** A SubgraphNode extended with d3-force simulation fields. */
+export interface ForceGraphNode {
+	nodeId: string;
+	name: string;
+	label: string;
+	filePath: string;
+	module: string;
+	language: string | null;
+	linesOfCode: number;
+	churnRate: number;
+	doaScore: number;
+	isDeveloper: boolean;
+	// d3-force fields (added at runtime)
+	x?: number;
+	y?: number;
+	vx?: number;
+	vy?: number;
+	fx?: number;
+	fy?: number;
 }

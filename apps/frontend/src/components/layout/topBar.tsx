@@ -2,7 +2,7 @@
  * @fileoverview Top navigation bar with search and view mode toggle.
  */
 
-import { GitBranch, Network, FolderTree } from "lucide-react";
+import { GitBranch, Network, FolderTree, Share2 } from "lucide-react";
 import { SearchBar } from "@/components/search/searchBar";
 import { useUiStore, type MainAreaMode } from "@/stores/uiStore";
 import { useGraphStore } from "@/stores/graphStore";
@@ -64,6 +64,7 @@ export function TopBar() {
 			<div className="flex items-center gap-1 shrink-0">
 				<ViewToggle mode="placeholder" label="Home" icon={<FolderTree size={14} />} />
 				<ViewToggle mode="heb" label="Graph" icon={<Network size={14} />} />
+				<ViewToggle mode="force" label="Explorer" icon={<Share2 size={14} />} />
 			</div>
 		</header>
 	);

@@ -26,6 +26,7 @@ export function HebContainer() {
 		edgeTypeFilter,
 		moduleFilter,
 		colorMode,
+		highlightedNodeIds,
 		setHoveredNode,
 		fetchHierarchy,
 	} = useGraphStore();
@@ -52,6 +53,7 @@ export function HebContainer() {
 			edgeTypeFilter,
 			colorMode,
 			moduleFilter,
+			highlightedNodeIds,
 			onNodeHover: setHoveredNode,
 			onNodeClick: handleNodeClick,
 		});
@@ -73,11 +75,12 @@ export function HebContainer() {
 			edgeTypeFilter,
 			colorMode,
 			moduleFilter,
+			highlightedNodeIds,
 			onNodeHover: setHoveredNode,
 			onNodeClick: handleNodeClick,
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [edgeTypeFilter, colorMode, moduleFilter]);
+	}, [edgeTypeFilter, colorMode, moduleFilter, highlightedNodeIds]);
 
 	// Fetch if not loaded
 	useEffect(() => {

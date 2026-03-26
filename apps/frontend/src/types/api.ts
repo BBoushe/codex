@@ -187,6 +187,37 @@ export interface FileTreeNode {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Force-directed subgraph types (Week 13)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SubgraphNode {
+	nodeId: string;
+	name: string;
+	label: string;
+	filePath: string;
+	module: string;
+	language: string | null;
+	linesOfCode: number;
+	churnRate: number;
+	doaScore: number;
+	isDeveloper: boolean;
+}
+
+export interface SubgraphEdge {
+	source: string;
+	target: string;
+	type: string;
+}
+
+export interface SubgraphResponse {
+	nodes: SubgraphNode[];
+	edges: SubgraphEdge[];
+	centerNodeId: string;
+}
+
+export type SizingMetric = "loc" | "doa" | "churn";
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Generic API result wrapper
 // ─────────────────────────────────────────────────────────────────────────────
 

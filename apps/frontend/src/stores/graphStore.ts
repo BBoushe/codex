@@ -20,6 +20,7 @@ interface GraphState {
 	edgeTypeFilter: string[];
 	moduleFilter: string | null;
 	colorMode: ColorMode;
+	highlightedNodeIds: Set<string>;
 	isLoading: boolean;
 	error: string | null;
 }
@@ -30,6 +31,8 @@ interface GraphActions {
 	setEdgeTypeFilter: (types: string[]) => void;
 	setModuleFilter: (module: string | null) => void;
 	setColorMode: (mode: ColorMode) => void;
+	setHighlightedNodes: (ids: string[]) => void;
+	clearHighlightedNodes: () => void;
 }
 
 export const useGraphStore = create<GraphState & GraphActions>((set) => ({
@@ -38,6 +41,7 @@ export const useGraphStore = create<GraphState & GraphActions>((set) => ({
 	edgeTypeFilter: [...ALL_EDGE_TYPES],
 	moduleFilter: null,
 	colorMode: "module",
+	highlightedNodeIds: new Set(),
 	isLoading: false,
 	error: null,
 
@@ -57,4 +61,6 @@ export const useGraphStore = create<GraphState & GraphActions>((set) => ({
 	setEdgeTypeFilter: (edgeTypeFilter) => set({ edgeTypeFilter }),
 	setModuleFilter: (moduleFilter) => set({ moduleFilter }),
 	setColorMode: (colorMode) => set({ colorMode }),
+	setHighlightedNodes: (ids) => set({ highlightedNodeIds: new Set(ids) }),
+	clearHighlightedNodes: () => set({ highlightedNodeIds: new Set() }),
 }));
