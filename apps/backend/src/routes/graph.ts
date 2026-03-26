@@ -7,6 +7,7 @@
 
 import { Elysia } from "elysia";
 import type { Driver } from "neo4j-driver";
+import { fetchSubgraph } from "@codex/graph-client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared types (mirrored in frontend src/types/graph.ts)
@@ -80,6 +81,22 @@ export function graphRoutes(deps: GraphDeps) {
 			} finally {
 				await session.close();
 			}
+		})
+		.get("/graph/subgraph", async ({ query, set }) => {
+			const nodeId = query["nodeId"];
+			if (!nodeId) {
+				set.status = 400;
+				return { error: "nodeId query parameter is required" };
+			}
+			const rawDepth = Number(query["depth"] ?? 2);
+			const depth = Math.max(1, Math.min(3, isNaN(rawDepth) ? 2 : rawDepth));
+
+			const result = await fetchSubgraph(deps.driver, nodeId, depth);
+			if (result.nodes.length === 0) {
+				set.status = 404;
+				return { error: `Node not found: ${nodeId}` };
+			}
+			return result;
 		})
 		.get("/graph/hierarchy", async ({ set }) => {
 			const session = deps.driver.session({ database: "neo4j" });
