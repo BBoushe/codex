@@ -18,6 +18,7 @@ export {
 	executeStructuralSpec,
 	findShortestPath,
 	resolveEntityByName,
+	fetchSubgraph,
 	isNodeId,
 	type ExpandedContext,
 	type RelatedEntity,
@@ -29,5 +30,8 @@ export {
 	type StructuralQuerySpec,
 	type NodeFilter,
 	type PathQueryResult,
+	type SubgraphNode,
+	type SubgraphEdge,
+	type SubgraphResponse,
 } from "./retriever";
 export { GRAPH_SCHEMA, getSchemaPrompt, type GraphSchema } from "./schema";

@@ -750,6 +750,145 @@ function recordToResolvedEntity(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Subgraph retrieval (Week 13 — force-directed explorer)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A node in the force-directed subgraph. */
+export interface SubgraphNode {
+	nodeId: string;
+	name: string;
+	label: string;
+	filePath: string;
+	module: string;
+	language: string | null;
+	linesOfCode: number;
+	churnRate: number;
+	doaScore: number;
+	isDeveloper: boolean;
+}
+
+/** A directed edge in the force-directed subgraph. */
+export interface SubgraphEdge {
+	source: string;
+	target: string;
+	type: string;
+}
+
+/** Response from fetchSubgraph(). */
+export interface SubgraphResponse {
+	nodes: SubgraphNode[];
+	edges: SubgraphEdge[];
+	centerNodeId: string;
+}
+
+const SUBGRAPH_EDGE_TYPES = [
+	"CALLS",
+	"IMPORTS",
+	"RENDERS",
+	"USES_HOOK",
+	"INHERITS",
+	"IMPLEMENTS",
+	"DECORATED_BY",
+	"OVERRIDES",
+	"HAS_EXPERTISE",
+	"DEFINED_IN",
+	"EXPORTS",
+];
+
+/**
+ * Fetches a neighborhood subgraph around a center node.
+ *
+ * Two-query approach (avoids cartesian product):
+ *   1. Collect all nodes within `depth` hops (capped at 500, excluding Commit nodes).
+ *   2. Collect all edges among those nodes.
+ */
+export async function fetchSubgraph(
+	driver: Driver,
+	nodeId: string,
+	depth = 2,
+): Promise<SubgraphResponse> {
+	const session = driver.session({ database: "neo4j" });
+
+	try {
+		// Query 1: neighborhood nodes
+		const nodesResult = await session.run(
+			`
+			MATCH (center {nodeId: $nodeId})
+			CALL {
+			  WITH center
+			  MATCH (center)-[*1..${depth}]-(neighbor)
+			  WHERE NOT neighbor:Commit
+			  RETURN DISTINCT neighbor AS n
+			  LIMIT 499
+			}
+			WITH center, collect(n) + [center] AS allNodes
+			UNWIND allNodes AS n
+			WITH DISTINCT n
+			OPTIONAL MATCH (n)-[:DEFINED_IN]->(f:File)
+			RETURN
+			  n.nodeId        AS nodeId,
+			  n.name          AS name,
+			  labels(n)[0]    AS label,
+			  COALESCE(n.filePath, f.filePath, '') AS filePath,
+			  COALESCE(n.linesOfCode, 0)           AS linesOfCode,
+			  COALESCE(f.churnRate, 0.0)           AS churnRate,
+			  f.language                           AS language
+			LIMIT 500
+			`,
+			{ nodeId },
+		);
+
+		if (nodesResult.records.length === 0) {
+			return { nodes: [], edges: [], centerNodeId: nodeId };
+		}
+
+		// Collect nodeIds for edge query
+		const nodeIds = nodesResult.records.map(
+			(r) => r.get("nodeId") as string,
+		).filter(Boolean);
+
+		// Query 2: edges among the collected nodes
+		const edgesResult = await session.run(
+			`
+			WITH $nodeIds AS ids
+			MATCH (a)-[r]->(b)
+			WHERE a.nodeId IN ids AND b.nodeId IN ids
+			  AND type(r) IN $edgeTypes
+			RETURN DISTINCT a.nodeId AS source, b.nodeId AS target, type(r) AS edgeType
+			`,
+			{ nodeIds, edgeTypes: SUBGRAPH_EDGE_TYPES },
+		);
+
+		const edges: SubgraphEdge[] = edgesResult.records.map((r) => ({
+			source: r.get("source") as string,
+			target: r.get("target") as string,
+			type: r.get("edgeType") as string,
+		}));
+
+		const nodes: SubgraphNode[] = nodesResult.records.map((r) => {
+			const label = (r.get("label") as string | null) ?? "Unknown";
+			const filePath = (r.get("filePath") as string | null) ?? "";
+			return {
+				nodeId: r.get("nodeId") as string,
+				name: (r.get("name") as string | null) ?? "",
+				label,
+				filePath,
+				module: filePath.split("/")[0] ?? "",
+				language: r.get("language") as string | null,
+				linesOfCode: toNumber(r.get("linesOfCode")),
+				churnRate: toNumberFloat(r.get("churnRate")),
+				doaScore: 0,
+				isDeveloper: label === "Developer",
+			};
+		});
+
+		return { nodes, edges, centerNodeId: nodeId };
+	} finally {
+		await session.close();
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Utilities
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -758,6 +897,15 @@ function toNumber(value: unknown): number {
 	if (typeof value === "number") return value;
 	if (value && typeof value === "object" && "toNumber" in value) {
 		return (value as { toNumber: () => number }).toNumber();
+	}
+	return 0;
+}
+
+/** Safely converts Neo4j Float/Integer objects to JS numbers (preserves decimals). */
+function toNumberFloat(value: unknown): number {
+	if (typeof value === "number") return value;
+	if (value && typeof value === "object") {
+		if ("toNumber" in value) return (value as { toNumber: () => number }).toNumber();
 	}
 	return 0;
 }
