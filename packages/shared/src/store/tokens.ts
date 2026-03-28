@@ -49,7 +49,10 @@ export const tokenStore = createStore<TokenStore>((set) => ({
 			embedded: s.embedded + (delta.embedded ?? 0),
 			llmInput: s.llmInput + (delta.llmInput ?? 0),
 			llmOutput: s.llmOutput + (delta.llmOutput ?? 0),
-			currentEmbedded: s.currentEmbedded + (delta.embedded ?? 0),
+			// Only LLM tokens count toward the per-query subtotal.
+			// Embedding tokens are bulk operations (codex embed / analyze),
+			// not per-query — they should not appear in the "query" counter.
+			currentEmbedded: s.currentEmbedded,
 			currentLlmInput: s.currentLlmInput + (delta.llmInput ?? 0),
 			currentLlmOutput: s.currentLlmOutput + (delta.llmOutput ?? 0),
 		})),
