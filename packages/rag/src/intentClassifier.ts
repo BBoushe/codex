@@ -75,22 +75,30 @@ There are three routing options:
    The "from" side is the unknown result when direction is "incoming". The "to" side is the unknown result when direction is "outgoing".
    Omit fields you don't need (e.g. if no label constraint, omit "label"). Use the edge types from the schema above.
 
-2. **social** — The question is about PEOPLE (developers, authors, contributors), developer activity, code churn, or hotspots: who *wrote* code, who *has expertise*, who *to ask* about something, which files change the most, what are the hotspots.
-   IMPORTANT: "who/what calls X?", "who imports X?", "who uses X?" are asking about CODE ENTITIES (functions, files), NOT people → classify as structural, not social.
-   Only classify as social when the question is about DEVELOPERS (humans, authors), not about which code entity does something.
-   Examples:
-   - "Who calls fetchPosts?" → structural (asking which functions/files call it)
+2. **social** — The question is specifically about PEOPLE: developers, authors, contributors.
+   Use social ONLY when the question asks about a human person: who wrote something, who has expertise, who to contact, who contributed.
+
+	IMPORTANT: "who/what calls X?", "who imports X?", "who uses X?" are asking about CODE ENTITIES (functions, files), NOT people → classify as structural, not social.
+
+   Examples of social:
    - "Who wrote fetchPosts?" → social (asking about the developer/author)
-   - "Who imports utils.ts?" → structural (asking which files import it)
    - "Who has expertise in utils.ts?" → social (asking about developer knowledge)
    - "Who is the main contributor?" → social (asking about a person)
-   Output: { "kind": "social", "extractedName": "<developer name, file/module name if mentioned, otherwise empty string>" }
+   - "Who should I ask about the auth module?" → social (asking about a person)
+   NOT social (these are about CODE, not PEOPLE):
+   - "Who calls fetchPosts?" → structural (asking which code calls it)
+   - "What is the smallest file?" → hybrid (asking about code properties)
+   - "Which file has the most functions?" → hybrid (asking about code structure)
+   - "What is the largest component?" → hybrid (asking about code size)
+   - "Which files change the most?" → hybrid (asking about code metrics)
+   - "What are the hotspots?" → hybrid (asking about code churn metrics)
+   Output: { "kind": "social", "extractedName": "<developer name or file/module name if mentioned, otherwise empty string>" }
 
-3. **hybrid** — The question describes behavior, asks about concepts, or requires understanding what code DOES.
-   This is the default for any question that doesn't name a specific entity or ask about people.
+3. **hybrid** — EVERYTHING ELSE. This is the default.
+   Any question about code behavior, code properties (size, complexity, LOC), code metrics (churn, commit count), code structure, concepts, or anything that is NOT about a named graph relationship (structural) and NOT about a human person (social).
    Sub-classify by scope:
    - "direct_lookup": mentions a specific named entity and asks what it does ("What does fetchPosts do?") → topK=1
-   - "semantic": describes a behavior or concept ("What handles authentication?", "What function fetches posts?") → topK=3
+   - "semantic": describes a behavior, property, or concept ("What handles authentication?", "What is the smallest file?", "What function fetches posts?") → topK=3
    - "architectural": asks about multi-module interactions or data flow ("How does data flow from API to UI?") → topK=5
    Output: { "kind": "hybrid", "subKind": "<direct_lookup|semantic|architectural>", "topK": <1|3|5> }
 
