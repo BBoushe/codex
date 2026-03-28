@@ -44,6 +44,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+**/.DS_Store
 
 # Nested git repos (test fixtures — created by setup-git.ts)
 packages/parser/fixtures/mini-app/.git

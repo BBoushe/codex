@@ -11,6 +11,8 @@ Include: what was implemented, any config or code decisions made, and caveats th
 
 - Always use markdown formatting for the summary block.
 - Put the entire summary in a single markdown code block, no matter how long it is.
+- Make sure it's all in markdown format, with proper headings, lists, and formatting for readability.
+- Make sure it's all in one code block, do not split it into multiple blocks.
 
 # Expected Output Format
 
