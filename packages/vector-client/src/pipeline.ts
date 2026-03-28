@@ -56,6 +56,21 @@ export interface PipelineOptions {
 	onProgress?: (embedded: number, total: number) => void;
 	/** Called before each retry with attempt info. */
 	onRetry?: (attempt: number, delayMs: number, error: Error) => void;
+	/**
+	 * Entity nodeIds already present in ChromaDB.
+	 * When provided, entities with matching IDs are skipped entirely —
+	 * the embedding API call is never made for them. This enables crash
+	 * recovery: if a pipeline run fails mid-way, re-running with the
+	 * existing ChromaDB IDs resumes from where it left off without
+	 * re-embedding or re-spending tokens on already-indexed entities.
+	 */
+	skipIds?: Set<string>;
+	/**
+	 * Pre-fetched embeddable entities. When provided, the pipeline skips
+	 * the internal `fetchEmbeddableNodes()` call. Useful when the caller
+	 * already fetched entities for UI reporting (e.g. `codex analyze`).
+	 */
+	prefetchedEntities?: EmbeddableEntity[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -170,8 +185,15 @@ export async function runEmbeddingPipeline(
 	let totalTokens = 0;
 	let totalEmbedded = 0;
 
-	// 1. Fetch embeddable entities from Neo4j
-	const entities = await fetchEmbeddableNodes(opts.driver);
+	// 1. Fetch embeddable entities from Neo4j (or use pre-fetched)
+	const allEntities = opts.prefetchedEntities ?? await fetchEmbeddableNodes(opts.driver);
+
+	// Apply checkpointing: skip entities already indexed in ChromaDB.
+	// Used by `codex analyze` on re-runs to avoid re-embedding entities that
+	// were successfully indexed in a prior (possibly interrupted) run.
+	const entities = opts.skipIds?.size
+		? allEntities.filter((e) => !opts.skipIds!.has(e.nodeId))
+		: allEntities;
 
 	if (entities.length === 0) {
 		return {
@@ -183,6 +205,7 @@ export async function runEmbeddingPipeline(
 			collectionName: COLLECTION_NAME,
 			estimatedCost: 0,
 			failures: [],
+			cachedCount: allEntities.length,
 		};
 	}
 
@@ -250,6 +273,7 @@ export async function runEmbeddingPipeline(
 		collectionName: COLLECTION_NAME,
 		estimatedCost,
 		failures: allFailures,
+		cachedCount: opts.skipIds?.size ?? 0,
 	};
 }
 

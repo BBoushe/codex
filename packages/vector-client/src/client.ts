@@ -133,3 +133,19 @@ export async function getCollectionInfo(
 	const count = await collection.count();
 	return { count, name: COLLECTION_NAME };
 }
+
+/**
+ * Returns the set of entity nodeIds currently stored in ChromaDB.
+ *
+ * Used for embedding checkpointing: the caller can pass this set as
+ * `skipIds` to `runEmbeddingPipeline` so that already-indexed entities
+ * are skipped on re-run, avoiding redundant API calls and token spend.
+ */
+export async function getExistingIds(client: ChromaClient): Promise<Set<string>> {
+	const collection = await getOrCreateEntityCollection(client);
+	const count = await collection.count();
+	if (count === 0) return new Set();
+	// Fetch IDs only — no vectors, documents, or metadata loaded.
+	const result = await collection.get({ limit: count, include: [] });
+	return new Set(result.ids);
+}

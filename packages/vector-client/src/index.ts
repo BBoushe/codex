@@ -5,6 +5,7 @@ export {
 	clearCollection,
 	verifyChromaConnectivity,
 	getCollectionInfo,
+	getExistingIds,
 	COLLECTION_NAME,
 	type CollectionInfo,
 } from "./client.js";

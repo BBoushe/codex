@@ -86,6 +86,8 @@ export interface EmbedStats {
 	estimatedCost: number;
 	/** Individual failure records, if any. */
 	failures: EmbedFailure[];
+	/** Number of entities skipped due to checkpointing (already in ChromaDB). */
+	cachedCount?: number;
 }
 
 /** A single entity that failed during embedding or indexing. */
