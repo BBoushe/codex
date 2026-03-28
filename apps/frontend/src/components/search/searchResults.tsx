@@ -56,7 +56,7 @@ export function SearchResults() {
 				{result.kind === "social" && <SocialResults result={result.result} />}
 				{result.kind === "path" && <PathResults result={result.result} />}
 			</div>
-			<TimingFooter timings={result.timings} />
+			<TimingFooter timings={result.timings} intent={result.intent} />
 		</div>
 	);
 }
