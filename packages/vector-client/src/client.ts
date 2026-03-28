@@ -115,3 +115,21 @@ export async function verifyChromaConnectivity(
 	}
 	return heartbeat;
 }
+
+/** Diagnostic info about a ChromaDB collection. */
+export interface CollectionInfo {
+	count: number;
+	name: string;
+}
+
+/**
+ * Returns diagnostic info about the entity collection.
+ * Useful for debugging empty-results issues.
+ */
+export async function getCollectionInfo(
+	client: ChromaClient,
+): Promise<CollectionInfo> {
+	const collection = await getOrCreateEntityCollection(client);
+	const count = await collection.count();
+	return { count, name: COLLECTION_NAME };
+}

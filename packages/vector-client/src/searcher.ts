@@ -28,12 +28,25 @@ export async function searchEntities(
 	nResults: number = 5,
 	where?: Record<string, string | number | boolean>,
 ): Promise<VectorSearchResult[]> {
-	const queryResponse = await collection.query({
-		queryEmbeddings: [queryVector],
-		nResults,
-		...(where ? { where } : {}),
-		include: ["metadatas", "distances", "documents"],
-	});
+	let queryResponse;
+	try {
+		queryResponse = await collection.query({
+			queryEmbeddings: [queryVector],
+			nResults,
+			...(where ? { where } : {}),
+			include: ["metadatas", "distances", "documents"],
+		});
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		console.error(`[vector-client] ChromaDB query failed: ${msg}`);
+		// Dimension mismatch is the most common silent failure
+		if (msg.includes("dimension") || msg.includes("InvalidDimension")) {
+			console.error(
+				`[vector-client] Likely dimension mismatch: query vector has ${queryVector.length} dims but collection expects a different size. Re-run 'codex embed' with the same embedding provider.`,
+			);
+		}
+		return [];
+	}
 
 	// ChromaDB returns column-oriented arrays wrapped in an outer array
 	// (one per query embedding — we always send exactly one).

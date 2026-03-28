@@ -4,7 +4,9 @@ export {
 	getOrCreateEntityCollection,
 	clearCollection,
 	verifyChromaConnectivity,
+	getCollectionInfo,
 	COLLECTION_NAME,
+	type CollectionInfo,
 } from "./client.js";
 
 // Batch upsert
