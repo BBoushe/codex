@@ -268,6 +268,16 @@ interface VisitContext {
 	 * OVERRIDES edges in the linker.
 	 */
 	overrideMethods: Set<string>;
+	/**
+	 * Maps lowercase simple class name → actual class name for imported classes.
+	 *
+	 * Used by the call extractor to map field/variable names to their declared
+	 * class type. E.g. `import com.example.UserService` adds `"userservice" → "UserService"`.
+	 * When a call `userService.getUser()` is seen, the object "userService" is
+	 * lowercased and looked up here to produce `"UserService.getUser"` instead
+	 * of the opaque `"userService.getUser"`.
+	 */
+	importedClassNames: Map<string, string>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -287,6 +297,7 @@ export class JavaVisitor implements Visitor {
 			unresolvedRefs: [],
 			localMethodNames: new Set(),
 			overrideMethods: new Set(),
+			importedClassNames: new Map(),
 		};
 
 		// ── FileNode ────────────────────────────────────────────────────
@@ -435,6 +446,13 @@ export class JavaVisitor implements Visitor {
 			: qualifiedName;
 
 		const simpleName = simpleNameFromQualified(qualifiedName);
+
+		// Register imported class name for the call-site heuristic.
+		// Maps lowercase simple name → PascalCase class name so that a
+		// variable `userService` can be matched to imported class `UserService`.
+		if (!isWildcard) {
+			ctx.importedClassNames.set(simpleName.toLowerCase(), simpleName);
+		}
 
 		ctx.unresolvedRefs.push({
 			kind: "import",
@@ -984,9 +1002,19 @@ export class JavaVisitor implements Visitor {
 
 			// Check if this is a method call on an object (e.g., `service.getUser()`)
 			const objectNode = invocation.childForFieldName("object");
-			const calleeName = objectNode
-				? `${objectNode.text}.${methodName}`
-				: methodName;
+			let calleeName: string;
+			if (objectNode) {
+				// Heuristic: if the object name (lowercase) matches an imported class
+				// name (e.g., `userService` → `UserService`), use the class name as
+				// the qualifier so the linker can resolve `UserService.getUser`.
+				const objectText = objectNode.text;
+				const resolvedClass = ctx.importedClassNames.get(objectText.toLowerCase());
+				calleeName = resolvedClass
+					? `${resolvedClass}.${methodName}`
+					: `${objectText}.${methodName}`;
+			} else {
+				calleeName = methodName;
+			}
 
 			ctx.unresolvedRefs.push({
 				kind: "call",

@@ -435,6 +435,36 @@ export function linkAll(
 				continue;
 			}
 
+			// Third: import-scoped method resolution for Java-style calls.
+			// If callee is `ClassName.method`, look up `ClassName` in the import map
+			// to get the file that defines it, then find `ClassName.method` in that file.
+			const dotIndex = call.calleeName.indexOf(".");
+			if (dotIndex > 0) {
+				const qualifier = call.calleeName.slice(0, dotIndex);
+				const methodPart = call.calleeName.slice(dotIndex + 1);
+				const resolvedClass = importMap.get(qualifier);
+				if (resolvedClass) {
+					// Look for `ClassName.method` as a local entity in the class's file
+					const qualifiedMethod = `${qualifier}.${methodPart}`;
+					const methodEntity = registry.getLocalEntity(resolvedClass.filePath, qualifiedMethod);
+					if (methodEntity && methodEntity !== call.callerNodeId) {
+						const edge: CallsEdge = {
+							type: EdgeType.CALLS,
+							callSiteLine: call.callSiteLine,
+							callSiteFile: call.callSiteFile,
+						};
+						newEdges.push({
+							sourceId: call.callerNodeId,
+							targetId: methodEntity,
+							edge,
+						});
+						stats.callsResolved++;
+						stats.edgesCreated++;
+						continue;
+					}
+				}
+			}
+
 			// Unresolved — could be a global (`setTimeout`, `fetch`), a callback
 			// parameter, or a function we failed to extract. This is expected.
 			stats.callsFailed++;
