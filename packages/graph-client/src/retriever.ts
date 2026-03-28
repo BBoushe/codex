@@ -390,26 +390,57 @@ export async function expandContext(
 			record.get("developers") as Array<Record<string, unknown>>
 		).filter((d) => d["name"] !== null) as unknown as DeveloperExpertise[];
 
+		const targetLabel = rawTarget["label"] as string;
+
+		// For File nodes: populate file from target itself and fetch defined entities
+		let fileInfo: { filePath: string; language: string } | null =
+			rawFile?.["filePath"] != null
+				? {
+						filePath: rawFile["filePath"] as string,
+						language: (rawFile["language"] as string) ?? "Unknown",
+					}
+				: null;
+
+		let definedEntities: RelatedEntity[] = [];
+
+		if (targetLabel === "File") {
+			// The target IS the file — populate file from target fields
+			fileInfo = {
+				filePath: rawTarget["filePath"] as string,
+				language: (rawTarget["language"] as string | null) ?? "Unknown",
+			};
+
+			// Fetch entities defined in this file
+			const childResult = await session.run(
+				`MATCH (entity)-[:DEFINED_IN]->(f:File {nodeId: $nodeId})
+				 RETURN entity {
+				   .nodeId, .name, .qualifiedName, .filePath,
+				   label: labels(entity)[0], .sourceCode,
+				   .startLine, .endLine
+				 } AS entity
+				 ORDER BY entity.startLine`,
+				{ nodeId },
+			);
+			definedEntities = childResult.records
+				.map((r) => r.get("entity") as Record<string, unknown>)
+				.filter((e) => e["nodeId"] !== null) as unknown as RelatedEntity[];
+		}
+
 		return {
 			target: {
 				nodeId: rawTarget["nodeId"] as string,
 				name: rawTarget["name"] as string,
 				qualifiedName: rawTarget["qualifiedName"] as string,
-				label: rawTarget["label"] as string,
+				label: targetLabel,
 				filePath: rawTarget["filePath"] as string,
 				sourceCode: (rawTarget["sourceCode"] as string | null) ?? null,
 				startLine: toNumber(rawTarget["startLine"]),
 				endLine: toNumber(rawTarget["endLine"]),
 			},
-			file:
-				rawFile?.["filePath"] != null
-					? {
-							filePath: rawFile["filePath"] as string,
-							language: (rawFile["language"] as string) ?? "Unknown",
-						}
-					: null,
+			file: fileInfo,
 			callers,
-			callees,
+			// For File nodes, callees holds the entities defined in the file
+			callees: targetLabel === "File" ? definedEntities : callees,
 			renderedComponents,
 			hooksUsed,
 			importedFiles,
@@ -759,6 +790,8 @@ export interface SubgraphNode {
 	name: string;
 	label: string;
 	filePath: string;
+	/** Parent directory path (e.g. "src/components" for "src/components/foo.tsx"). Used for clustering. */
+	directory: string;
 	module: string;
 	language: string | null;
 	linesOfCode: number;
@@ -873,6 +906,7 @@ export async function fetchSubgraph(
 				name: (r.get("name") as string | null) ?? "",
 				label,
 				filePath,
+				directory: filePath.includes("/") ? filePath.split("/").slice(0, -1).join("/") : "",
 				module: filePath.split("/")[0] ?? "",
 				language: r.get("language") as string | null,
 				linesOfCode: toNumber(r.get("linesOfCode")),
