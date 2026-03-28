@@ -45,6 +45,7 @@ interface FileTreeNode {
 	path: string;
 	type: "directory" | "file";
 	language?: string;
+	nodeId?: string;
 	children?: FileTreeNode[];
 }
 
@@ -63,7 +64,7 @@ export function graphRoutes(deps: GraphDeps) {
 			try {
 				const result = await session.run(
 					`MATCH (f:File)
-					 RETURN f.filePath AS filePath, f.language AS language
+					 RETURN f.filePath AS filePath, f.language AS language, f.nodeId AS nodeId
 					 ORDER BY f.filePath`,
 				);
 
@@ -75,6 +76,7 @@ export function graphRoutes(deps: GraphDeps) {
 				const filePaths = result.records.map((r) => ({
 					filePath: r.get("filePath") as string,
 					language: (r.get("language") as string | null) ?? undefined,
+					nodeId: (r.get("nodeId") as string | null) ?? undefined,
 				}));
 
 				return buildFileTree(filePaths);
@@ -118,6 +120,7 @@ export function graphRoutes(deps: GraphDeps) {
 					      max(exp.doaScore) AS maxDoa
 					 RETURN
 					   f.filePath AS filePath,
+					   f.nodeId AS fileNodeId,
 					   f.language AS language,
 					   f.churnRate AS churnRate,
 					   maxDoa AS doaScore,
@@ -132,7 +135,11 @@ export function graphRoutes(deps: GraphDeps) {
 				// Query 2: dependency edges
 				const edgeResult = await session.run(
 					`MATCH (a)-[r]->(b)
-					 WHERE type(r) IN ['CALLS', 'IMPORTS', 'RENDERS', 'USES_HOOK', 'INHERITS', 'IMPLEMENTS']
+					 WHERE type(r) IN [
+					   'CALLS', 'IMPORTS', 'RENDERS', 'USES_HOOK',
+					   'INHERITS', 'IMPLEMENTS', 'EXPORTS',
+					   'PASSES_PROP', 'SETS_STATE', 'DECORATED_BY', 'OVERRIDES'
+					 ]
 					   AND a.nodeId IS NOT NULL AND b.nodeId IS NOT NULL
 					 RETURN a.nodeId AS source, b.nodeId AS target, type(r) AS edgeType`,
 				);
@@ -146,6 +153,7 @@ export function graphRoutes(deps: GraphDeps) {
 				// Build tree from flat file list
 				const fileRows = treeResult.records.map((r) => ({
 					filePath: r.get("filePath") as string,
+					fileNodeId: (r.get("fileNodeId") as string | null) ?? undefined,
 					language: (r.get("language") as string | null) ?? undefined,
 					churnRate: toNumber(r.get("churnRate")),
 					doaScore: toNumber(r.get("doaScore")),
@@ -169,6 +177,7 @@ export function graphRoutes(deps: GraphDeps) {
 
 interface FileRow {
 	filePath: string;
+	fileNodeId?: string;
 	language?: string;
 	churnRate?: number;
 	doaScore?: number;
@@ -225,6 +234,20 @@ function buildHierarchyTree(rows: FileRow[]): HierarchyNode {
 			children: [],
 		};
 
+		// Always add a self-leaf for the file using its Neo4j nodeId.
+		// This makes IMPORTS edges (which reference File nodeIds) renderable in the HEB.
+		if (row.fileNodeId) {
+			fileNode.children!.push({
+				id: row.fileNodeId,
+				name: fileName,
+				type: "file",
+				module,
+				language: row.language,
+				churnRate: row.churnRate,
+				doaScore: row.doaScore,
+			});
+		}
+
 		// Attach entity children to the file node
 		for (const entity of row.entities) {
 			const labelRaw = entity["label"] as string | null;
@@ -249,7 +272,7 @@ function buildHierarchyTree(rows: FileRow[]): HierarchyNode {
 
 /** Builds a nested FileTreeNode structure for the browse endpoint. */
 function buildFileTree(
-	files: Array<{ filePath: string; language?: string }>,
+	files: Array<{ filePath: string; language?: string; nodeId?: string }>,
 ): FileTreeNode[] {
 	const root: FileTreeNode[] = [];
 
@@ -278,6 +301,7 @@ function buildFileTree(
 			path: file.filePath,
 			type: "file",
 			language: file.language,
+			nodeId: file.nodeId,
 		});
 	}
 

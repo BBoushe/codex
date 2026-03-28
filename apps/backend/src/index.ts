@@ -15,6 +15,7 @@ import { hybridRoutes } from "./routes/hybrid.js";
 import { structuralRoutes } from "./routes/structural.js";
 import { entityRoutes } from "./routes/entity.js";
 import { graphRoutes } from "./routes/graph.js";
+import { modelsRoutes } from "./routes/models.js";
 
 // ─── Environment validation ──────────────────────────────────────────────────
 
@@ -144,6 +145,25 @@ console.log(
 	`Classifier provider: ${classifierProvider.providerName} (${classifierProvider.modelId})`,
 );
 
+// ─── LLM provider factory (for per-request model overrides) ──────────────────
+
+function createLlmProviderWithModel(model: string) {
+	if (llmProviderName === "anthropic") {
+		const apiKey = process.env.ANTHROPIC_API_KEY!;
+		return createAntrhopicLLMProvider({ apiKey, model });
+	}
+	if (llmProviderName === "openai") {
+		const apiKey = process.env.OPENAI_API_KEY!;
+		return createOpenAILLMProvider({ apiKey, model });
+	}
+	if (llmProviderName === "gemini") {
+		const apiKey = process.env.GEMINI_API_KEY!;
+		return createGeminiLLMProvider({ apiKey, model });
+	}
+	const apiKey = process.env.SILICONFLOW_API_KEY!;
+	return createSiliconFlowLLMProvider({ apiKey, model });
+}
+
 // ─── Elysia app ──────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
@@ -157,11 +177,13 @@ new Elysia()
 			embeddingProvider,
 			llmProvider,
 			classifierProvider,
+			createLlmProvider: createLlmProviderWithModel,
 		}),
 	)
 	.use(structuralRoutes({ driver }))
 	.use(entityRoutes({ driver }))
 	.use(graphRoutes({ driver }))
+	.use(modelsRoutes())
 	.get("/health", () => ({ status: "ok", neo4j: true, chroma: true }))
 	.listen(PORT);
 
