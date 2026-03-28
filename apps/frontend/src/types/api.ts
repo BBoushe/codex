@@ -183,6 +183,8 @@ export interface FileTreeNode {
 	path: string;
 	type: "directory" | "file";
 	language?: string;
+	/** Neo4j nodeId — present on file nodes, absent on directories. */
+	nodeId?: string;
 	children?: FileTreeNode[];
 }
 
@@ -195,6 +197,7 @@ export interface SubgraphNode {
 	name: string;
 	label: string;
 	filePath: string;
+	directory: string;
 	module: string;
 	language: string | null;
 	linesOfCode: number;
@@ -216,6 +219,22 @@ export interface SubgraphResponse {
 }
 
 export type SizingMetric = "loc" | "doa" | "churn";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model catalogue types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ModelInfo {
+	id: string;
+	name: string;
+	provider: string;
+}
+
+export interface ModelsResponse {
+	provider: string;
+	activeModel: string;
+	models: ModelInfo[];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Generic API result wrapper

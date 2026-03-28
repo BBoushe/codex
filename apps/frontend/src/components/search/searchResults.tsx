@@ -42,6 +42,12 @@ export function SearchResults() {
 
 	return (
 		<div className="flex flex-col h-full">
+			{/* Query as title */}
+			{query && (
+				<div className="px-4 py-2.5 border-b border-[--color-border] shrink-0">
+					<p className="text-sm font-medium text-[--color-text] leading-snug">{query}</p>
+				</div>
+			)}
 			<div className="flex-1 overflow-y-auto">
 				{result.kind === "structural" && (
 					<StructuralResults result={result.result} />

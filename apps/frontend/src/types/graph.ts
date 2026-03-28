@@ -61,6 +61,7 @@ export interface ForceGraphNode {
 	name: string;
 	label: string;
 	filePath: string;
+	directory: string;
 	module: string;
 	language: string | null;
 	linesOfCode: number;

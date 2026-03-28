@@ -5,7 +5,6 @@
 import { useState, type KeyboardEvent, type FormEvent } from "react";
 import { Search, Loader2 } from "lucide-react";
 import { useSearchStore } from "@/stores/searchStore";
-import { useUiStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 
 const INTENT_LABELS: Record<string, { label: string; color: string }> = {
@@ -17,7 +16,6 @@ const INTENT_LABELS: Record<string, { label: string; color: string }> = {
 export function SearchBar() {
 	const [localQuery, setLocalQuery] = useState("");
 	const { isLoading, result, executeSearch } = useSearchStore();
-	const setSidePanelMode = useUiStore((s) => s.setSidePanelMode);
 
 	const intent = result?.intent.kind;
 	const intentBadge = intent ? INTENT_LABELS[intent] : null;
@@ -27,7 +25,6 @@ export function SearchBar() {
 		const trimmed = localQuery.trim();
 		if (!trimmed || isLoading) return;
 		executeSearch(trimmed);
-		setSidePanelMode("results");
 	}
 
 	function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -56,17 +53,17 @@ export function SearchBar() {
 				placeholder="Ask anything about the codebase…"
 				disabled={isLoading}
 				className={cn(
-					"w-full pl-9 pr-32 py-2 rounded-lg border text-sm",
-					"bg-[--color-surface-2] border-[--color-border]",
+					"w-full pl-9 pr-32 py-2 rounded-lg border text-sm shadow-sm",
+					"bg-[--color-surface] border-[--color-border]",
 					"text-[--color-text] placeholder:text-[--color-text-muted]",
-					"focus:outline-none focus:border-[--color-accent]",
-					"disabled:opacity-60 transition-colors",
+					"focus:outline-none focus:ring-2 focus:ring-[--color-accent] focus:border-transparent",
+					"disabled:opacity-60 transition-all hover:border-[--color-text-muted]",
 				)}
 			/>
 			{intentBadge && !isLoading && (
 				<span
 					className={cn(
-						"absolute right-10 text-xs px-1.5 py-0.5 rounded font-mono",
+						"absolute right-10 text-xs px-2 py-0.5 rounded-md font-medium",
 						intentBadge.color,
 					)}
 				>
@@ -78,12 +75,13 @@ export function SearchBar() {
 				disabled={isLoading || !localQuery.trim()}
 				className={cn(
 					"absolute right-2 p-1.5 rounded-md",
-					"text-[--color-text-muted] hover:text-[--color-accent]",
-					"disabled:opacity-40 transition-colors",
+					"text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2]",
+					"focus:outline-none focus:ring-2 focus:ring-[--color-accent]",
+					"disabled:opacity-40 transition-all",
 				)}
 				aria-label="Search"
 			>
-				<Search size={14} />
+				<Search size={16} />
 			</button>
 		</form>
 	);

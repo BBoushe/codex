@@ -1,17 +1,23 @@
 /**
  * @fileoverview Controls overlay for the force-directed subgraph explorer.
  *
- * Same styling pattern as hebControls.tsx — absolute top-right overlay panel.
- * Receives fgRef for programmatic zoom/center actions.
+ * Absolute top-right overlay panel. Receives fgRef for programmatic zoom actions.
  */
 
+import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
+import { type RefObject } from "react";
 import type { ForceGraphMethods } from "react-force-graph-2d";
 import { useForceStore } from "@/stores/forceStore";
+import { useUiStore } from "@/stores/uiStore";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import type { SizingMetric } from "@/types/api";
 import { cn } from "@/lib/utils";
 
 interface ForceControlsProps {
-	fgRef: React.MutableRefObject<ForceGraphMethods | undefined>;
+	fgRef: RefObject<ForceGraphMethods | undefined>;
+	/** Called when sizing metric changes so the graph can reheat. */
+	onSizingChange: () => void;
 }
 
 const SIZING_METRICS: { value: SizingMetric; label: string }[] = [
@@ -20,32 +26,75 @@ const SIZING_METRICS: { value: SizingMetric; label: string }[] = [
 	{ value: "churn", label: "Churn" },
 ];
 
-export function ForceControls({ fgRef }: ForceControlsProps) {
-	const { sizingMetric, showDevelopers, setSizingMetric, toggleDevelopers } = useForceStore();
+function Toggle({
+	checked,
+	onChange,
+	label,
+}: {
+	checked: boolean;
+	onChange: () => void;
+	label: string;
+}) {
+	return (
+		<label className="flex items-center gap-2 cursor-pointer select-none group">
+			<input type="checkbox" checked={checked} onChange={onChange} className="hidden" />
+			<span
+				className={cn(
+					"w-3.5 h-3.5 rounded-[3px] border shrink-0 transition-all duration-150 flex items-center justify-center",
+					checked
+						? "bg-[--color-accent] border-[--color-accent]"
+						: "border-[--color-border] bg-transparent group-hover:border-[--color-text-muted]",
+				)}
+			>
+				{checked && (
+					<svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+						<path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+					</svg>
+				)}
+			</span>
+			<span className={cn(
+				"text-[11px] transition-colors",
+				checked ? "text-[--color-text]" : "text-[--color-text-muted] group-hover:text-[--color-text]",
+			)}>
+				{label}
+			</span>
+		</label>
+	);
+}
+
+export function ForceControls({ fgRef, onSizingChange }: ForceControlsProps) {
+	const { sizingMetric, showDevelopers, showFiles, groupByDirectory, groupByLabel, setSizingMetric, toggleDevelopers, toggleFiles, toggleGroupByDirectory, toggleGroupByLabel } =
+		useForceStore();
+
+	function handleMetricChange(metric: SizingMetric) {
+		setSizingMetric(metric);
+		onSizingChange();
+	}
 
 	return (
 		<div
 			className={cn(
-				"absolute top-3 right-3 w-40 rounded-lg border border-[--color-border]",
-				"bg-[--color-surface]/90 backdrop-blur-sm p-3",
+				"absolute top-3 right-3 w-44 rounded-lg border border-[--color-border]",
+				"bg-[--color-surface]/95 backdrop-blur-md",
+				"shadow-(--shadow-md) p-3",
 				"text-xs flex flex-col gap-3",
 			)}
 		>
 			{/* Size by */}
 			<div>
-				<p className="font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
+				<p className="text-[10px] font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
 					Size by
 				</p>
 				<div className="flex gap-1">
 					{SIZING_METRICS.map((m) => (
 						<button
 							key={m.value}
-							onClick={() => setSizingMetric(m.value)}
+							onClick={() => handleMetricChange(m.value)}
 							className={cn(
-								"flex-1 py-0.5 rounded text-[10px] transition-colors",
+								"flex-1 py-1 rounded-[3px] text-[10px] font-medium transition-all duration-150",
 								sizingMetric === m.value
-									? "bg-[--color-accent] text-white"
-									: "text-[--color-text-muted] hover:text-[--color-text] border border-[--color-border]",
+									? "bg-[--color-accent] text-white shadow-(--shadow-xs)"
+									: "text-[--color-text-muted] hover:text-[--color-text] border border-[--color-border] hover:border-[--color-text-muted] hover:bg-[--color-surface-2]",
 							)}
 						>
 							{m.label}
@@ -54,40 +103,74 @@ export function ForceControls({ fgRef }: ForceControlsProps) {
 				</div>
 			</div>
 
-			{/* Show developers */}
-			<label className="flex items-center gap-2 cursor-pointer">
-				<input
-					type="checkbox"
-					checked={showDevelopers}
-					onChange={toggleDevelopers}
-					className="hidden"
-				/>
-				<span
-					className={cn(
-						"w-3 h-3 rounded-sm border shrink-0 transition-colors",
-						showDevelopers
-							? "bg-[--color-accent] border-transparent"
-							: "border-[--color-border] bg-transparent",
-					)}
-				/>
-				<span className="text-[--color-text-muted]">Developers</span>
-			</label>
+			<Separator />
+
+			{/* Visibility toggles */}
+			<div className="flex flex-col gap-2">
+				<Toggle checked={showDevelopers} onChange={toggleDevelopers} label="Developers" />
+				<Toggle checked={showFiles} onChange={toggleFiles} label="Files" />
+				<Toggle checked={groupByDirectory} onChange={toggleGroupByDirectory} label="Group dirs" />
+				<Toggle checked={groupByLabel} onChange={toggleGroupByLabel} label="Group labels" />
+			</div>
+
+			<Separator />
 
 			{/* Zoom controls */}
-			<div className="flex flex-col gap-1">
-				<button
-					onClick={() => fgRef.current?.zoomToFit(400)}
-					className="py-0.5 px-1 rounded text-[10px] text-[--color-text-muted] hover:text-[--color-text] border border-[--color-border] transition-colors"
+			<div className="flex flex-col gap-1.5">
+				<div className="flex gap-1">
+					<Button
+						variant="secondary"
+						size="sm"
+						className="flex-1 text-[10px] h-6 px-1"
+						onClick={() => {
+							const fg = fgRef.current;
+							if (fg) {
+								const z = (fg.zoom?.() as number | undefined) ?? 1;
+								fg.zoom?.(z * 1.3, 200);
+							}
+						}}
+					>
+						<ZoomIn size={10} /> In
+					</Button>
+					<Button
+						variant="secondary"
+						size="sm"
+						className="flex-1 text-[10px] h-6 px-1"
+						onClick={() => {
+							const fg = fgRef.current;
+							if (fg) {
+								const z = (fg.zoom?.() as number | undefined) ?? 1;
+								fg.zoom?.(z / 1.3, 200);
+							}
+						}}
+					>
+						<ZoomOut size={10} /> Out
+					</Button>
+				</div>
+				<Button
+					variant="secondary"
+					size="sm"
+					className="w-full text-[10px] h-6 px-1"
+					onClick={() => fgRef.current?.zoomToFit(400, 40)}
 				>
-					Zoom to Fit
-				</button>
-				<button
-					onClick={() => fgRef.current?.centerAt(0, 0, 400)}
-					className="py-0.5 px-1 rounded text-[10px] text-[--color-text-muted] hover:text-[--color-text] border border-[--color-border] transition-colors"
-				>
-					Recenter
-				</button>
+					<Maximize2 size={10} /> Fit All
+				</Button>
 			</div>
+
+			<Separator />
+
+			{/* Reset */}
+			<Button
+				variant="ghost"
+				size="sm"
+				className="w-full text-[10px] h-6 px-1 text-red-400 hover:text-red-300"
+				onClick={() => {
+					useForceStore.getState().reset();
+					useUiStore.getState().setMainAreaMode("placeholder");
+				}}
+			>
+				<RotateCcw size={10} /> Reset Explorer
+			</Button>
 		</div>
 	);
 }

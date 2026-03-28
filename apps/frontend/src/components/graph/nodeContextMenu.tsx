@@ -60,8 +60,9 @@ export function NodeContextMenu({
 			ref={menuRef}
 			style={{ left: x, top: y }}
 			className={cn(
-				"absolute z-50 w-44 rounded-lg border border-[--color-border]",
-				"bg-[--color-surface] shadow-lg py-1 flex flex-col",
+				"absolute z-9999 w-44 rounded-lg border border-[--color-border]",
+				"bg-[--color-surface] backdrop-blur-xl",
+				"shadow-xl py-1 flex flex-col",
 			)}
 		>
 			<p className="px-3 py-1 text-[10px] text-[--color-text-muted] font-mono truncate border-b border-[--color-border] mb-1">

@@ -13,6 +13,9 @@ interface ForceState {
 	subgraphData: SubgraphResponse | null;
 	centerNodeId: string | null;
 	showDevelopers: boolean;
+	showFiles: boolean;
+	groupByDirectory: boolean;
+	groupByLabel: boolean;
 	sizingMetric: SizingMetric;
 	expandedNodeIds: Set<string>;
 	highlightedNodeIds: Set<string>;
@@ -27,6 +30,9 @@ interface ForceActions {
 	setHighlightedNodes: (ids: string[]) => void;
 	clearHighlightedNodes: () => void;
 	toggleDevelopers: () => void;
+	toggleFiles: () => void;
+	toggleGroupByDirectory: () => void;
+	toggleGroupByLabel: () => void;
 	setSizingMetric: (metric: SizingMetric) => void;
 	reset: () => void;
 }
@@ -35,6 +41,9 @@ const initialState: ForceState = {
 	subgraphData: null,
 	centerNodeId: null,
 	showDevelopers: false,
+	showFiles: true,
+	groupByDirectory: false,
+	groupByLabel: false,
 	sizingMetric: "loc",
 	expandedNodeIds: new Set(),
 	highlightedNodeIds: new Set(),
@@ -98,6 +107,12 @@ export const useForceStore = create<ForceState & ForceActions>((set, get) => ({
 	clearHighlightedNodes: () => set({ highlightedNodeIds: new Set() }),
 
 	toggleDevelopers: () => set((s) => ({ showDevelopers: !s.showDevelopers })),
+
+	toggleFiles: () => set((s) => ({ showFiles: !s.showFiles })),
+
+	toggleGroupByDirectory: () => set((s) => ({ groupByDirectory: !s.groupByDirectory, groupByLabel: false })),
+
+	toggleGroupByLabel: () => set((s) => ({ groupByLabel: !s.groupByLabel, groupByDirectory: false })),
 
 	setSizingMetric: (sizingMetric) => set({ sizingMetric }),
 

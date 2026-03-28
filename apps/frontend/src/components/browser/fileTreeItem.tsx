@@ -13,6 +13,8 @@ import {
 import type { FileTreeNode } from "@/types/api";
 import { languageIcon } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import { useEntityStore } from "@/stores/entityStore";
+import { useUiStore } from "@/stores/uiStore";
 
 interface FileTreeItemProps {
 	node: FileTreeNode;
@@ -23,6 +25,8 @@ interface FileTreeItemProps {
 export function FileTreeItem({ node, depth }: FileTreeItemProps) {
 	const [open, setOpen] = useState(depth === 0);
 	const indentPx = depth * 12 + 16;
+	const selectEntity = useEntityStore((s) => s.selectEntity);
+	const setSidePanelMode = useUiStore((s) => s.setSidePanelMode);
 
 	if (node.type === "directory") {
 		return (
@@ -61,15 +65,26 @@ export function FileTreeItem({ node, depth }: FileTreeItemProps) {
 		);
 	}
 
-	// File node
+	// File node — clickable when nodeId is available
+	function handleFileClick() {
+		if (node.nodeId) {
+			selectEntity(node.nodeId);
+			setSidePanelMode("entity");
+		}
+	}
+
 	return (
 		<li>
-			<div
+			<button
+				onClick={handleFileClick}
+				disabled={!node.nodeId}
 				style={{ paddingLeft: `${indentPx}px` }}
 				className={cn(
-					"flex items-center gap-1.5 py-1 pr-4 text-xs",
-					"text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2]",
-					"transition-colors",
+					"w-full flex items-center gap-1.5 py-1 pr-4 text-xs text-left",
+					"text-[--color-text-muted] transition-colors",
+					node.nodeId
+						? "hover:text-[--color-text] hover:bg-[--color-surface-2] cursor-pointer"
+						: "cursor-default",
 				)}
 			>
 				<FileCode size={13} className="shrink-0 text-blue-400/70" />
@@ -79,7 +94,7 @@ export function FileTreeItem({ node, depth }: FileTreeItemProps) {
 						{languageIcon(node.language)}
 					</span>
 				)}
-			</div>
+			</button>
 		</li>
 	);
 }

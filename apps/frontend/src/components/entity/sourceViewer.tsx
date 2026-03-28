@@ -7,39 +7,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import type { Highlighter } from "shiki";
-
-type ShikiLanguage = "typescript" | "javascript" | "python" | "java";
-
-const LANGUAGE_MAP: Record<string, ShikiLanguage> = {
-	TypeScript: "typescript",
-	JavaScript: "javascript",
-	Python: "python",
-	Java: "java",
-	TSX: "typescript",
-	JSX: "javascript",
-};
-
-/** Singleton Shiki highlighter — initialised once, shared across all instances. */
-let highlighterCache: Highlighter | null = null;
-let highlighterLoading: Promise<Highlighter> | null = null;
-
-async function getHighlighter(): Promise<Highlighter> {
-	if (highlighterCache) return highlighterCache;
-	if (highlighterLoading) return highlighterLoading;
-
-	highlighterLoading = (async () => {
-		const { createHighlighter } = await import("shiki");
-		const h = await createHighlighter({
-			themes: ["github-dark"],
-			langs: ["typescript", "javascript", "python", "java"],
-		});
-		highlighterCache = h;
-		return h;
-	})();
-
-	return highlighterLoading;
-}
+import { getHighlighter, normaliseLang } from "@/lib/shiki";
 
 interface SourceViewerProps {
 	/** Raw source code to highlight. */
@@ -56,7 +24,7 @@ export function SourceViewer({ sourceCode, language, startLine = 1 }: SourceView
 
 	useEffect(() => {
 		mountedRef.current = true;
-		const lang: ShikiLanguage = LANGUAGE_MAP[language] ?? "typescript";
+		const lang = normaliseLang(language);
 
 		getHighlighter().then((h) => {
 			if (!mountedRef.current) return;

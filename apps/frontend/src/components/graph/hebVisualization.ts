@@ -90,6 +90,11 @@ function render(
 	const height = container.clientHeight || 600;
 	const radius = Math.min(width, height) * 0.42;
 
+	// Read theme-aware colors from CSS variables
+	const styles = getComputedStyle(container);
+	const labelColor = styles.getPropertyValue("--color-text-muted").trim() || "#8892a4";
+	const strokeColor = styles.getPropertyValue("--color-background").trim() || "#0f1117";
+
 	// Clear previous render
 	d3.select(svgEl).selectAll("*").remove();
 
@@ -170,7 +175,7 @@ function render(
 			g.append("circle")
 				.attr("r", 4)
 				.attr("fill", color)
-				.attr("stroke", "#0f1117")
+				.attr("stroke", strokeColor)
 				.attr("stroke-width", 1.5)
 				.attr("cursor", "pointer");
 
@@ -180,7 +185,7 @@ function render(
 				.attr("text-anchor", isRightHalf ? "start" : "end")
 				.attr("dominant-baseline", "central")
 				.attr("font-size", "9px")
-				.attr("fill", "#8892a4")
+				.attr("fill", labelColor)
 				.attr("cursor", "pointer")
 				.attr("transform", isRightHalf ? "" : "rotate(180)")
 				.text(truncate(d.data.name, 20));

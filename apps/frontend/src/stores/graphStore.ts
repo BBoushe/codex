@@ -11,7 +11,11 @@ import { fetchHierarchy } from "@/api/client";
 import type { HierarchyResponse, ColorMode } from "@/types/graph";
 
 /** All edge types shown in the HEB filter panel. */
-export const ALL_EDGE_TYPES = ["CALLS", "IMPORTS", "RENDERS", "USES_HOOK", "INHERITS", "IMPLEMENTS"] as const;
+export const ALL_EDGE_TYPES = [
+	"CALLS", "IMPORTS", "RENDERS", "USES_HOOK",
+	"INHERITS", "IMPLEMENTS", "EXPORTS",
+	"PASSES_PROP", "SETS_STATE", "DECORATED_BY", "OVERRIDES",
+] as const;
 export type EdgeType = (typeof ALL_EDGE_TYPES)[number];
 
 interface GraphState {

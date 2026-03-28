@@ -3,7 +3,11 @@
  */
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { ChevronDown, ChevronRight, BarChart3 } from "lucide-react";
+import { ShikiCodeBlock } from "./shikiCodeBlock";
+import { StatRow } from "./statCard";
 import type { HybridSearchResult } from "@/types/api";
 import { useEntityStore } from "@/stores/entityStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -16,6 +20,7 @@ interface HybridResultsProps {
 
 export function HybridResults({ result }: HybridResultsProps) {
 	const [anchorsOpen, setAnchorsOpen] = useState(false);
+	const [showStats, setShowStats] = useState(false);
 	const selectEntity = useEntityStore((s) => s.selectEntity);
 	const setSidePanelMode = useUiStore((s) => s.setSidePanelMode);
 
@@ -26,18 +31,37 @@ export function HybridResults({ result }: HybridResultsProps) {
 
 	return (
 		<div className="flex flex-col gap-0">
-			{/* Answer */}
-			<div className="px-4 py-3">
-				<p className="text-sm text-[--color-text] leading-relaxed whitespace-pre-wrap">
+			{/* Answer — rendered as markdown */}
+			<div className="px-4 py-3 prose prose-sm prose-invert max-w-none text-[--color-text] [&_a]:text-[--color-accent] [&_a]:no-underline [&_a:hover]:underline">
+				<ReactMarkdown
+					remarkPlugins={[remarkGfm]}
+					components={{ code: ShikiCodeBlock }}
+				>
 					{result.answer}
-				</p>
+				</ReactMarkdown>
 			</div>
 
-			{/* Model + token info */}
-			<div className="px-4 py-1.5 flex items-center gap-3 text-[10px] text-[--color-text-muted] border-t border-[--color-border]">
-				<span className="font-mono">{result.model.split("/").pop()}</span>
-				<span>{result.usage.inputTokens}↑ {result.usage.outputTokens}↓ tokens</span>
+			{/* Collapsible model + token stats */}
+			<div className="flex items-center px-4 py-1 border-t border-[--color-border]">
+				<button
+					onClick={() => setShowStats((v) => !v)}
+					className="flex items-center gap-1 text-[10px] text-[--color-text-muted] hover:text-[--color-text] transition-colors"
+					title={showStats ? "Hide details" : "Show details"}
+				>
+					<BarChart3 size={12} />
+					<span>{showStats ? "Hide" : "Details"}</span>
+				</button>
 			</div>
+			{showStats && (
+				<StatRow
+					stats={[
+						{ label: "model", value: result.model.split("/").pop() ?? result.model, key: "hybrid-model" },
+						{ label: "in", value: `${result.usage.inputTokens} tok`, key: "hybrid-tok-in" },
+						{ label: "out", value: `${result.usage.outputTokens} tok`, key: "hybrid-tok-out" },
+						{ label: "anchors", value: result.anchors.length, key: "hybrid-anchors" },
+					]}
+				/>
+			)}
 
 			{/* Anchors */}
 			{result.anchors.length > 0 && (

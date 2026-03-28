@@ -15,6 +15,7 @@ import type {
 	ContextBudget,
 	ExpandedContext,
 	FileTreeNode,
+	ModelsResponse,
 	SearchResult,
 	SubgraphResponse,
 } from "@/types/api";
@@ -79,6 +80,8 @@ async function request<T>(
 export interface HybridSearchOptions {
 	topK?: number;
 	budget?: ContextBudget;
+	/** Override the LLM model for this request. */
+	model?: string;
 }
 
 /**
@@ -130,6 +133,13 @@ export function fetchSubgraph(
 	return request<SubgraphResponse>(
 		`/api/graph/subgraph?nodeId=${encodeURIComponent(nodeId)}&depth=${depth}`,
 	);
+}
+
+/**
+ * Returns the model catalogue for the currently configured LLM provider.
+ */
+export function fetchModels(): Promise<ApiResult<ModelsResponse>> {
+	return request<ModelsResponse>("/api/models");
 }
 
 /**
