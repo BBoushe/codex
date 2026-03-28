@@ -2,7 +2,7 @@
 import { Command } from "commander";
 import { runInit } from "./commands/init.js";
 import { runIngest } from "./commands/ingest.js";
-import { runAnalyze } from "./commands/stubs.js";
+import { runAnalyze } from "./commands/analyze.js";
 import { runMine } from "./commands/mine.js";
 import { runEmbed } from "./commands/embed.js";
 import { runQuery } from "./commands/query.js";
@@ -41,7 +41,20 @@ program
 program
 	.command("analyze <path>")
 	.description("Run the full pipeline: ingest → mine → embed → serve")
-	.action((targetPath: string) => runAnalyze(targetPath));
+	.option("--clean", "wipe graph + embeddings before running", false)
+	.option("--skip-mine", "skip git mining phase", false)
+	.option("--serve", "launch web UI after pipeline completes", false)
+	.option("--provider <name>", "embedding provider (siliconflow | openai)", "siliconflow")
+	.option("--model <model>", "embedding model override")
+	.action((targetPath: string, options: { clean: boolean; skipMine: boolean; serve: boolean; provider: string; model?: string }) => {
+		runAnalyze(targetPath, {
+			clean: options.clean,
+			skipMine: options.skipMine,
+			serve: options.serve,
+			provider: options.provider,
+			model: options.model,
+		});
+	});
 
 // ─── mine ────────────────────────────────────────────────────────────────────
 

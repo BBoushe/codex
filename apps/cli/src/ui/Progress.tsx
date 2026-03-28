@@ -16,7 +16,7 @@ export function Spinner() {
 
 // ─── Step ─────────────────────────────────────────────────────────────────────
 
-export type StepStatus = "pending" | "running" | "done" | "failed";
+export type StepStatus = "pending" | "running" | "done" | "failed" | "warned";
 
 interface StepProps {
 	label: string;
@@ -30,6 +30,8 @@ export function Step({ label, status, detail }: StepProps) {
 			<Text color="green">✔</Text>
 		) : status === "failed" ? (
 			<Text color="red">✘</Text>
+		) : status === "warned" ? (
+			<Text color="yellow">⚠</Text>
 		) : status === "running" ? (
 			<Spinner />
 		) : (
@@ -41,9 +43,11 @@ export function Step({ label, status, detail }: StepProps) {
 			? "green"
 			: status === "failed"
 				? "red"
-				: status === "running"
-					? "white"
-					: "gray";
+				: status === "warned"
+					? "yellow"
+					: status === "running"
+						? "white"
+						: "gray";
 
 	return (
 		<Box gap={1}>

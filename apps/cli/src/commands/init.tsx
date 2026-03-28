@@ -14,7 +14,7 @@ import os from "node:os";
 import { Box, Text, render, useApp, useInput } from "ink";
 import { Layout } from "../ui/Layout.js";
 import { runIngest } from "./ingest.js";
-import { runAnalyze } from "./stubs.js";
+import { runAnalyze } from "./analyze.js";
 import { runUi } from "./ui.js";
 import { runMine } from "./mine.js";
 import { runEmbed } from "./embed.js";
@@ -155,16 +155,46 @@ const COMMANDS: CommandDef[] = [
 	{
 		name: "analyze",
 		description: "Full pipeline",
-		detail: "Runs ingest → mine → embed → serve in sequence.",
+		detail: "Runs ingest → mine → embed in sequence. Optionally launches the web UI.",
 		phase: "All    ",
-		available: false,
+		available: true,
 		needsPath: true,
 		options: [
 			{
 				key: "clean",
 				flag: "--clean",
-				description: "Wipe graph before running",
+				description: "Wipe graph + embeddings before running",
 				default: false,
+				available: true,
+			},
+			{
+				key: "skipMine",
+				flag: "--skip-mine",
+				description: "Skip git mining phase",
+				default: false,
+				available: true,
+			},
+			{
+				key: "serve",
+				flag: "--serve",
+				description: "Launch web UI after pipeline",
+				default: false,
+				available: true,
+			},
+			{
+				key: "provider",
+				flag: "--provider",
+				description: "Embedding provider",
+				default: "siliconflow",
+				available: true,
+				choices: ["siliconflow", "openai"],
+			},
+			{
+				key: "model",
+				flag: "--model",
+				description: "Embedding model override",
+				default: process.env["EMBEDDING_MODEL"] ?? "",
+				available: true,
 			},
 		],
 	},
@@ -479,8 +509,14 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 		}
 	}
 
-	// Suppress our own arrow-key handler while typing in the text input
-	const isTyping = focused === "path" && !readyToRun;
+	/** True when the focused field is a free-text input (path or string option). */
+	const isTextOption =
+		typeof focused === "number" &&
+		typeof cmd.options[focused]?.default === "string" &&
+		!cmd.options[focused]?.choices;
+
+	// Suppress arrow-key navigation while typing in any text input
+	const isTyping = (focused === "path" || isTextOption) && !readyToRun;
 
 	useInput((input, key) => {
 		if (key.escape) {
@@ -488,8 +524,13 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 			return;
 		}
 
-		// Backspace goes back to previous field (when not typing in text input)
-		if (key.backspace && !isTyping) {
+		// Backspace goes back to previous field when not typing,
+		// or when a text option is already empty (nothing to delete).
+		const textOptEmpty =
+			isTextOption &&
+			typeof focused === "number" &&
+			String(opts[cmd.options[focused]!.key] ?? "") === "";
+		if (key.backspace && (!isTyping || textOptEmpty)) {
 			if (readyToRun) {
 				setReadyToRun(false);
 				return;
@@ -536,13 +577,26 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 						),
 					}));
 				}
+			} else if (typeof opt.default === "string") {
+				// Free-text string input: type characters, backspace to delete
+				if (key.backspace || key.delete) {
+					setOpts((o) => ({
+						...o,
+						[opt.key]: String(o[opt.key] ?? "").slice(0, -1),
+					}));
+				} else if (input && !key.ctrl && !key.meta && !key.return) {
+					setOpts((o) => ({
+						...o,
+						[opt.key]: String(o[opt.key] ?? "") + input,
+					}));
+				}
 			} else if (input === " ") {
 				// Boolean toggle: space bar
 				setOpts((o) => ({ ...o, [opt.key]: !o[opt.key] }));
 			}
 		}
 
-		if (key.return && !isTyping) {
+		if (key.return && (!isTyping || isTextOption)) {
 			if (readyToRun) {
 				onConfirm(path, opts);
 				return;
@@ -628,7 +682,7 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 								{opt.description}
 							</Text>
 						</Box>
-						{/* Toggle / picker widget / n/a badge */}
+						{/* Toggle / picker / text input / n/a badge */}
 						{isAvailable ? (
 							opt.choices ? (
 								<Box gap={1}>
@@ -637,6 +691,16 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 										{String(val)}
 									</Text>
 									<Text color={isFocused ? "cyan" : "gray"}>{"›"}</Text>
+								</Box>
+							) : typeof opt.default === "string" ? (
+								// Free-text string input
+								<Box gap={0}>
+									<Text color={isFocused ? "white" : "gray"}>
+										{String(val) || (isFocused ? "" : "(empty)")}
+									</Text>
+									{isFocused && (
+										<Text backgroundColor="white" color="black">{" "}</Text>
+									)}
 								</Box>
 							) : (
 								<Box gap={1}>
@@ -787,7 +851,14 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 				});
 				break;
 			case "analyze":
-				runAnalyze(targetPath);
+				runAnalyze(targetPath, {
+					clean: !!opts["clean"],
+					skipMine: !!opts["skipMine"],
+					serve: !!opts["serve"],
+					provider: String(opts["provider"] ?? "siliconflow"),
+					model: opts["model"] ? String(opts["model"]) : undefined,
+					onComplete,
+				});
 				break;
 			case "mine":
 				runMine(targetPath, {

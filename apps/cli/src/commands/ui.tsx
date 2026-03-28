@@ -19,7 +19,7 @@ import { Layout } from "../ui/Layout.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../../../");
 
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:3001";
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:3000";
 const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:5173";
 const HEALTH_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 500;

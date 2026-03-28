@@ -321,6 +321,15 @@ function QueryUI({ question, options }: QueryUIProps) {
 		if (!options.onComplete) exit();
 	}
 
+	function formatIntent(r: SearchResult): string {
+		const { intent } = r;
+		switch (intent.kind) {
+			case "structural": return `structural → ${intent.spec.edge} (${intent.spec.direction})`;
+			case "social": return `social → "${intent.extractedName || "(no name)"}"`;
+			case "hybrid": return `hybrid/${intent.subKind} · K=${intent.topK}${intent.wasFallback ? " (fallback)" : ""}`;
+		}
+	}
+
 	const summaryRows: Array<{ label: string; value: string | number }> = result
 		? [
 				{ label: "Query", value: question },
@@ -335,6 +344,7 @@ function QueryUI({ question, options }: QueryUIProps) {
 							? `social · ${result.result.developers.length} devs · ${result.result.files.length} files`
 							: result.kind,
 				},
+				{ label: "Intent", value: formatIntent(result) },
 				...(result.kind === "hybrid" || result.kind === "social"
 					? [
 							{ label: "Model", value: result.result.model },
