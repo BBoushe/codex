@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Text, render, useApp } from "ink";
+import { Box, Text, Static, render, useApp } from "ink";
 import neo4j from "neo4j-driver";
 import path from "node:path";
 import { parseProject } from "@codex/parser";
@@ -26,10 +26,21 @@ interface IngestOptions {
 
 type Phase = "connect" | "schema" | "parse" | "insert";
 
-interface PhaseState {
+interface PhaseEntry {
+	phase: Phase;
+	label: string;
 	status: StepStatus;
 	detail: string;
 }
+
+const STEP_LABELS: Record<Phase, string> = {
+	connect: "Connect to Neo4j",
+	schema: "Initialize schema",
+	parse: "Parse source files",
+	insert: "Insert into Neo4j",
+};
+
+const PHASE_ORDER: Phase[] = ["connect", "schema", "parse", "insert"];
 
 // ─── UI component ────────────────────────────────────────────────────────────
 
@@ -43,12 +54,11 @@ interface IngestUIProps {
 function IngestUI({ targetPath, options, onComplete, nextPhaseLabel }: IngestUIProps) {
 	const { exit } = useApp();
 
-	const [phases, setPhases] = useState<Record<Phase, PhaseState>>({
-		connect: { status: "pending", detail: "" },
-		schema: { status: "pending", detail: "" },
-		parse: { status: "pending", detail: "" },
-		insert: { status: "pending", detail: "" },
-	});
+	// Completed phases rendered once via <Static> — no re-renders
+	const [donePhases, setDonePhases] = useState<PhaseEntry[]>([]);
+	// Active phase rendered normally
+	const [activePhase, setActivePhase] = useState<Phase>("connect");
+	const [activeDetail, setActiveDetail] = useState("");
 
 	const [error, setError] = useState<string | null>(null);
 	const [done, setDone] = useState(false);
@@ -60,8 +70,18 @@ function IngestUI({ targetPath, options, onComplete, nextPhaseLabel }: IngestUIP
 		total: number;
 	} | null>(null);
 
-	const set = (phase: Phase, patch: Partial<PhaseState>) =>
-		setPhases((prev) => ({ ...prev, [phase]: { ...prev[phase], ...patch } }));
+	/** Mark the current phase done and move to the next. */
+	function completePhase(phase: Phase, detail: string) {
+		setDonePhases((prev) => [
+			...prev,
+			{ phase, label: STEP_LABELS[phase], status: "done", detail },
+		]);
+		const nextIdx = PHASE_ORDER.indexOf(phase) + 1;
+		if (nextIdx < PHASE_ORDER.length) {
+			setActivePhase(PHASE_ORDER[nextIdx]!);
+			setActiveDetail("");
+		}
+	}
 
 	useEffect(() => {
 		run().catch((err) => {
@@ -75,7 +95,7 @@ function IngestUI({ targetPath, options, onComplete, nextPhaseLabel }: IngestUIP
 		const absPath = path.resolve(targetPath);
 
 		// ── 1. Connect ────────────────────────────────────────────────────
-		set("connect", { status: "running", detail: NEO4J_URI });
+		setActiveDetail(NEO4J_URI);
 		const driver = neo4j.driver(
 			NEO4J_URI,
 			neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD),
@@ -83,51 +103,48 @@ function IngestUI({ targetPath, options, onComplete, nextPhaseLabel }: IngestUIP
 		try {
 			await driver.verifyConnectivity();
 		} catch {
-			set("connect", {
-				status: "failed",
-				detail: "could not reach Neo4j — is Docker running?",
-			});
+			setDonePhases((prev) => [
+				...prev,
+				{
+					phase: "connect",
+					label: STEP_LABELS.connect,
+					status: "failed",
+					detail: "could not reach Neo4j — is Docker running?",
+				},
+			]);
 			await driver.close();
 			exit(new Error("Neo4j unreachable"));
 			return;
 		}
-		set("connect", { status: "done", detail: NEO4J_URI });
+		completePhase("connect", NEO4J_URI);
 
 		// ── 2. Schema ─────────────────────────────────────────────────────
-		set("schema", { status: "running", detail: "" });
 		const schemaResult = await initializeSchema(driver);
-		set("schema", {
-			status: "done",
-			detail: `${schemaResult.statementsRun} statements`,
-		});
+		completePhase("schema", `${schemaResult.statementsRun} statements`);
 
 		// ── 3. Parse ──────────────────────────────────────────────────────
-		set("parse", { status: "running", detail: absPath });
+		setActiveDetail(absPath);
 		if (options.clean) {
 			await clearGraph(driver);
 		}
 		const { files, stats: parseStats } = await parseProject(absPath, {
 			onProgress: (parsed, total) => {
 				setParseProgress({ done: parsed, total });
-				set("parse", {
-					status: "running",
-					detail: `${parsed} / ${total} files`,
-				});
+				setActiveDetail(`${parsed} / ${total} files`);
 			},
 		});
 		setParseProgress(null);
-		set("parse", {
-			status: "done",
-			detail: `${parseStats.filesParsed} files · ${parseStats.totalEntities} entities · ${parseStats.totalRelationships} relationships`,
-		});
+		completePhase(
+			"parse",
+			`${parseStats.filesParsed} files · ${parseStats.totalEntities} entities · ${parseStats.totalRelationships} relationships`,
+		);
 
 		// ── 4. Insert ─────────────────────────────────────────────────────
-		set("insert", { status: "running", detail: "" });
 		const insertStats = await insertParseResults(driver, files);
-		set("insert", {
-			status: "done",
-			detail: `${insertStats.nodesInserted} nodes · ${insertStats.edgesInserted} edges · ${insertStats.durationMs}ms`,
-		});
+		completePhase(
+			"insert",
+			`${insertStats.nodesInserted} nodes · ${insertStats.edgesInserted} edges · ${insertStats.durationMs}ms`,
+		);
 
 		await driver.close();
 
@@ -144,67 +161,65 @@ function IngestUI({ targetPath, options, onComplete, nextPhaseLabel }: IngestUIP
 			},
 		]);
 		setDone(true);
-		// If no post-run handler, exit immediately (direct CLI usage)
 		if (!onComplete) exit();
 	}
 
-	const STEP_LABELS: Record<Phase, string> = {
-		connect: "Connect to Neo4j",
-		schema: "Initialize schema",
-		parse: "Parse source files",
-		insert: "Insert into Neo4j",
-	};
-
 	return (
 		<Layout showHeader={false} command="ingest" showTokenTicker={false}>
-			<Box flexDirection="column" paddingY={1}>
-				<Box flexDirection="column" marginTop={1}>
-					{(Object.keys(phases) as Phase[]).map((phase) => (
-						<React.Fragment key={phase}>
-							<Step
-								label={STEP_LABELS[phase]}
-								status={phases[phase].status}
-								detail={phases[phase].detail}
-							/>
-							{phase === "parse" &&
-								phases[phase].status === "running" &&
-								parseProgress &&
-								parseProgress.total > 0 && (
-									<Box paddingLeft={2}>
-										<ProgressBar
-											value={parseProgress.done / parseProgress.total}
-											width={24}
-										/>
-									</Box>
-								)}
-						</React.Fragment>
-					))}
-				</Box>
-
-				{error && (
-					<Box marginTop={1}>
-						<Text color="red">Error: {error}</Text>
-					</Box>
-				)}
-
-				{done && <SummaryTable title="Summary" rows={summary} />}
-
-				{done && onComplete && (
-					<PostRunOptions
-						nextPhaseLabel={nextPhaseLabel}
-						onComplete={(action) => {
-							exit();
-							onComplete(action);
-						}}
+			{/* Completed steps — rendered once, never re-drawn */}
+			<Static items={donePhases}>
+				{(entry) => (
+					<Step
+						key={entry.phase}
+						label={entry.label}
+						status={entry.status}
+						detail={entry.detail}
 					/>
 				)}
+			</Static>
 
-				{!done && (
-					<Box marginTop={1}>
-						<Text dimColor>^C to abort</Text>
-					</Box>
-				)}
-			</Box>
+			{/* Active step + optional progress bar */}
+			{!done && (
+				<Box flexDirection="column">
+					<Step
+						label={STEP_LABELS[activePhase]}
+						status="running"
+						detail={activeDetail}
+					/>
+					{activePhase === "parse" && parseProgress && parseProgress.total > 0 && (
+						<Box paddingLeft={2}>
+							<ProgressBar
+								value={parseProgress.done / parseProgress.total}
+								width={24}
+							/>
+						</Box>
+					)}
+				</Box>
+			)}
+
+			{error && (
+				<Box marginTop={1}>
+					<Text color="red">Error: {error}</Text>
+				</Box>
+			)}
+
+			{done && <SummaryTable title="Run summary" rows={summary} />}
+
+			{done && onComplete && (
+				<PostRunOptions
+					nextPhaseLabel={nextPhaseLabel}
+					onComplete={(action) => {
+						exit();
+						onComplete(action);
+					}}
+				/>
+			)}
+
+			{!done && (
+				<Box marginTop={1}>
+					<Text dimColor>^C to abort</Text>
+				</Box>
+			)}
 		</Layout>
 	);
 }

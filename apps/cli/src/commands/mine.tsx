@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Box, Text, render, useApp } from "ink";
+import { useState, useEffect, useRef } from "react";
+import { Box, Text, Static, render, useApp } from "ink";
 import neo4j from "neo4j-driver";
 import path from "node:path";
 import { mine } from "@codex/git-miner";
@@ -24,10 +24,21 @@ interface MineCommandOptions {
 
 type Phase = "connect" | "validate" | "log" | "blame" | "compute" | "insert";
 
-interface PhaseState {
+interface PhaseEntry {
+	phase: Phase;
+	label: string;
 	status: StepStatus;
 	detail: string;
 }
+
+const STEP_LABELS: Record<Phase, string> = {
+	connect: "Connect to Neo4j",
+	validate: "Validate graph state",
+	log: "Extract git history",
+	blame: "Analyze file ownership",
+	compute: "Compute expertise (DOA)",
+	insert: "Insert into Neo4j",
+};
 
 // ─── UI component ─────────────────────────────────────────────────────────────
 
@@ -41,14 +52,9 @@ interface MineUIProps {
 function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps) {
 	const { exit } = useApp();
 
-	const [phases, setPhases] = useState<Record<Phase, PhaseState>>({
-		connect: { status: "pending", detail: "" },
-		validate: { status: "pending", detail: "" },
-		log: { status: "pending", detail: "" },
-		blame: { status: "pending", detail: "" },
-		compute: { status: "pending", detail: "" },
-		insert: { status: "pending", detail: "" },
-	});
+	const [donePhases, setDonePhases] = useState<PhaseEntry[]>([]);
+	const [activePhase, setActivePhase] = useState<Phase>("connect");
+	const [activeDetail, setActiveDetail] = useState("");
 
 	const [error, setError] = useState<string | null>(null);
 	const [done, setDone] = useState(false);
@@ -56,8 +62,17 @@ function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps
 	const [summary, setSummary] = useState<Array<{ label: string; value: string | number }>>([]);
 	const [failureSites, setFailureSites] = useState<Array<{ title: string; files: string[] }>>([]);
 
-	const set = (phase: Phase, patch: Partial<PhaseState>) =>
-		setPhases((prev) => ({ ...prev, [phase]: { ...prev[phase], ...patch } }));
+	// Track which phases have already been pushed to Static (to avoid duplicates in callbacks)
+	const pushedRef = useRef<Set<Phase>>(new Set());
+
+	function completePhase(phase: Phase, detail: string, status: StepStatus = "done") {
+		if (pushedRef.current.has(phase)) return;
+		pushedRef.current.add(phase);
+		setDonePhases((prev) => [
+			...prev,
+			{ phase, label: STEP_LABELS[phase], status, detail },
+		]);
+	}
 
 	useEffect(() => {
 		run().catch((err) => {
@@ -71,7 +86,7 @@ function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps
 		const absPath = path.resolve(targetPath);
 
 		// ── 1. Connect ────────────────────────────────────────────────────
-		set("connect", { status: "running", detail: NEO4J_URI });
+		setActiveDetail(NEO4J_URI);
 		const driver = neo4j.driver(
 			NEO4J_URI,
 			neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD),
@@ -79,38 +94,35 @@ function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps
 		try {
 			await driver.verifyConnectivity();
 		} catch {
-			set("connect", { status: "failed", detail: "could not reach Neo4j — is Docker running?" });
+			completePhase("connect", "could not reach Neo4j — is Docker running?", "failed");
 			await driver.close();
 			exit(new Error("Neo4j unreachable"));
 			return;
 		}
-		set("connect", { status: "done", detail: NEO4J_URI });
+		completePhase("connect", NEO4J_URI);
+		setActivePhase("validate");
 
 		// ── 2. Validate graph state ───────────────────────────────────────
-		set("validate", { status: "running", detail: "Checking for ingested files…" });
+		setActiveDetail("Checking for ingested files…");
 		const fileCount = await countFileNodes(driver);
 		if (fileCount === 0) {
-			set("validate", {
-				status: "failed",
-				detail: "No File nodes found — run `codex ingest <path>` first",
-			});
+			completePhase("validate", "No File nodes found — run `codex ingest <path>` first", "failed");
 			await driver.close();
 			exit(new Error("Graph is empty — run ingest first"));
 			return;
 		}
 		if (options.clean) {
-			set("validate", { status: "running", detail: "Clearing existing mine data…" });
+			setActiveDetail("Clearing existing mine data…");
 			await clearMineData(driver);
 		}
-		set("validate", { status: "done", detail: `${fileCount} File nodes found${options.clean ? " · cleared" : ""}` });
+		completePhase("validate", `${fileCount} File nodes found${options.clean ? " · cleared" : ""}`);
+		setActivePhase("log");
 
 		// ── 3-5. Run mining pipeline ──────────────────────────────────────
-		set("log", { status: "running", detail: "Reading git log…" });
+		setActiveDetail("Reading git log…");
 
-		// Accumulate phase detail from progress callbacks for display
-		let logDetail = "";
-		let blameDetail = "";
-		let computeDetail = "";
+		let finalLogDetail = "";
+		let finalBlameDetail = "";
 
 		const result = await mine(absPath, driver, {
 			since: options.since,
@@ -118,23 +130,24 @@ function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps
 			onProgress: (progress) => {
 				switch (progress.phase) {
 					case "log":
-						logDetail = progress.detail ?? "";
-						set("log", { status: "running", detail: logDetail });
+						finalLogDetail = progress.detail ?? "";
+						setActiveDetail(finalLogDetail);
 						break;
 					case "blame":
-						set("log", { status: "done", detail: logDetail });
-						blameDetail = progress.detail ?? "";
-						set("blame", { status: "running", detail: blameDetail });
+						completePhase("log", finalLogDetail || "complete");
+						setActivePhase("blame");
+						finalBlameDetail = progress.detail ?? "";
+						setActiveDetail(finalBlameDetail);
 						setBlameProgress({ done: progress.current, total: progress.total });
 						break;
 					case "map":
 						setBlameProgress(null);
-						set("blame", { status: "done", detail: blameDetail });
-						set("compute", { status: "running", detail: progress.detail ?? "" });
+						completePhase("blame", finalBlameDetail || "complete");
+						setActivePhase("compute");
+						setActiveDetail(progress.detail ?? "");
 						break;
 					case "doa":
-						computeDetail = progress.detail ?? "";
-						set("compute", { status: "running", detail: computeDetail });
+						setActiveDetail(progress.detail ?? "");
 						break;
 					default:
 						break;
@@ -142,25 +155,24 @@ function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps
 			},
 		});
 
-		// Ensure all mining phases show "done" regardless of progress timing
-		set("log", { status: "done", detail: `${result.stats.commits} commits · ${result.stats.developers} developers` });
+		// Flush any remaining in-flight phases with final stats
+		const logFinal = `${result.stats.commits} commits · ${result.stats.developers} developers`;
+		const blameFinal = `${result.stats.filesBlamed} files · ${result.stats.blameFailures} skipped`;
+		const computeFinal = `${result.stats.expertiseEdges} expertise edges · Truck Factor: ${result.truckFactor.truckFactor}`;
+
+		completePhase("log", logFinal);
+		completePhase("blame", blameFinal);
+		completePhase("compute", computeFinal);
 		setBlameProgress(null);
-		set("blame", {
-			status: "done",
-			detail: `${result.stats.filesBlamed} files · ${result.stats.blameFailures} skipped`,
-		});
-		set("compute", {
-			status: "done",
-			detail: `${result.stats.expertiseEdges} expertise edges · Truck Factor: ${result.truckFactor.truckFactor}`,
-		});
+		setActivePhase("insert");
+		setActiveDetail("Writing to Neo4j…");
 
 		// ── 6. Insert ─────────────────────────────────────────────────────
-		set("insert", { status: "running", detail: "Writing to Neo4j…" });
 		const insertStats = await insertMineResults(driver, result);
-		set("insert", {
-			status: "done",
-			detail: `${insertStats.developersInserted} devs · ${insertStats.commitsInserted} commits · ${insertStats.expertiseEdges} expertise · ${insertStats.durationMs}ms`,
-		});
+		completePhase(
+			"insert",
+			`${insertStats.developersInserted} devs · ${insertStats.commitsInserted} commits · ${insertStats.expertiseEdges} expertise · ${insertStats.durationMs}ms`,
+		);
 
 		await driver.close();
 
@@ -179,7 +191,6 @@ function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps
 			{ label: "Duration", value: `${result.stats.durationMs}ms` },
 		]);
 
-		// Collect per-site failure lists (only non-empty ones)
 		const sites: Array<{ title: string; files: string[] }> = [];
 		if (result.stats.blameFailureFiles.length > 0)
 			sites.push({ title: "Blame failures (binary/deleted)", files: result.stats.blameFailureFiles });
@@ -190,48 +201,39 @@ function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps
 		if (!onComplete) exit();
 	}
 
-	const STEP_LABELS: Record<Phase, string> = {
-		connect: "Connect to Neo4j",
-		validate: "Validate graph state",
-		log: "Extract git history",
-		blame: "Analyze file ownership",
-		compute: "Compute expertise (DOA)",
-		insert: "Insert into Neo4j",
-	};
-
 	return (
 		<Layout showHeader={false} command="mine" showTokenTicker={false}>
-			<Box flexDirection="column" paddingY={1}>
-				<Box flexDirection="column" marginTop={1}>
-					{(Object.keys(phases) as Phase[]).map((phase) => (
-						<React.Fragment key={phase}>
-							<Step
-								label={STEP_LABELS[phase]}
-								status={phases[phase].status}
-								detail={phases[phase].detail}
-							/>
-							{phase === "blame" &&
-								phases[phase].status === "running" &&
-								blameProgress &&
-								blameProgress.total > 0 && (
-									<Box paddingLeft={2}>
-										<ProgressBar
-											value={blameProgress.done / blameProgress.total}
-											width={24}
-										/>
-									</Box>
-								)}
-						</React.Fragment>
-					))}
-				</Box>
-
-				{error && (
-					<Box marginTop={1}>
-						<Text color="red">Error: {error}</Text>
-					</Box>
+			{/* Completed steps — rendered once via Static */}
+			<Static items={donePhases}>
+				{(entry) => (
+					<Step
+						key={entry.phase}
+						label={entry.label}
+						status={entry.status}
+						detail={entry.detail}
+					/>
 				)}
+			</Static>
 
-				{done && <SummaryTable title="Summary" rows={summary} />}
+			{/* Active step + optional blame progress bar */}
+			{!done && (
+				<Box flexDirection="column">
+					<Step label={STEP_LABELS[activePhase]} status="running" detail={activeDetail} />
+					{activePhase === "blame" && blameProgress && blameProgress.total > 0 && (
+						<Box paddingLeft={2}>
+							<ProgressBar value={blameProgress.done / blameProgress.total} width={24} />
+						</Box>
+					)}
+				</Box>
+			)}
+
+			{error && (
+				<Box marginTop={1}>
+					<Text color="red">Error: {error}</Text>
+				</Box>
+			)}
+
+			{done && <SummaryTable title="Run summary" rows={summary} />}
 
 			{done && failureSites.length > 0 && (
 				<Box flexDirection="column" marginTop={1}>
@@ -247,22 +249,21 @@ function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps
 				</Box>
 			)}
 
-				{done && onComplete && (
-					<PostRunOptions
-						nextPhaseLabel={nextPhaseLabel}
-						onComplete={(action) => {
-							exit();
-							onComplete(action);
-						}}
-					/>
-				)}
+			{done && onComplete && (
+				<PostRunOptions
+					nextPhaseLabel={nextPhaseLabel}
+					onComplete={(action) => {
+						exit();
+						onComplete(action);
+					}}
+				/>
+			)}
 
-				{!done && (
-					<Box marginTop={1}>
-						<Text dimColor>^C to abort</Text>
-					</Box>
-				)}
-			</Box>
+			{!done && (
+				<Box marginTop={1}>
+					<Text dimColor>^C to abort</Text>
+				</Box>
+			)}
 		</Layout>
 	);
 }

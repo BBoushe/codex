@@ -46,12 +46,3 @@ export function runAnalyze(_targetPath: string) {
 }
 
 
-export function runServe() {
-	render(
-		<StubUI
-			command="serve"
-			phase="Phase 4 (Week 11)"
-			description="Launches the CODEX web UI on localhost."
-		/>,
-	);
-}

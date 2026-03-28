@@ -50,6 +50,10 @@ const CHROMA_URL = process.env.CHROMA_URL ?? "http://localhost:8000";
 export interface QueryOptions {
 	budget?: ContextBudget;
 	provider?: string;
+	/** Override the synthesis/LLM model (default: LLM_MODEL env). */
+	model?: string;
+	/** Override the intent classifier model (default: CLASSIFIER_MODEL env). */
+	classifierModel?: string;
 	topK?: number;
 	onComplete?: (action: PostRunAction) => void;
 	nextPhaseLabel?: string; // e.g. "Run another query"
@@ -246,7 +250,6 @@ function QueryUI({ question, options }: QueryUIProps) {
 	const [phaseDetail, setPhaseDetail] = useState("");
 	const [result, setResult] = useState<SearchResult | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [durationMs, setDurationMs] = useState(0);
 
 	useEffect(() => {
 		run().catch((err) => {
@@ -265,8 +268,9 @@ function QueryUI({ question, options }: QueryUIProps) {
 		const providerName =
 			options.provider ?? process.env["LLM_PROVIDER"] ?? "siliconflow";
 		const llmModel =
-			process.env["LLM_MODEL"] ?? "Qwen/Qwen3-Coder-30B-A3B-Instruct";
-		const classifierModel = process.env["CLASSIFIER_MODEL"] ?? "Qwen/Qwen3-14B";
+			options.model ?? process.env["LLM_MODEL"] ?? "Qwen/Qwen3-Coder-30B-A3B-Instruct";
+		const classifierModel =
+			options.classifierModel ?? process.env["CLASSIFIER_MODEL"] ?? "Qwen/Qwen3-14B";
 
 		// ── Connect ──────────────────────────────────────────────────────
 		setPhase("connecting");
@@ -297,8 +301,6 @@ function QueryUI({ question, options }: QueryUIProps) {
 		setPhase("classifying");
 		setPhaseDetail("Determining query type...");
 
-		const startTime = Date.now();
-
 		try {
 			const searchResult = await runSearch(question, {
 				driver,
@@ -310,7 +312,6 @@ function QueryUI({ question, options }: QueryUIProps) {
 				budget,
 			});
 
-			setDurationMs(Date.now() - startTime);
 			setResult(searchResult);
 			setPhase("done");
 		} finally {
@@ -327,23 +328,22 @@ function QueryUI({ question, options }: QueryUIProps) {
 					label: "Kind",
 					value:
 						result.kind === "hybrid"
-							? `hybrid (${result.result.anchors.length} anchors)`
+							? `hybrid · ${result.result.anchors.length} anchors`
+							: result.kind === "structural"
+							? `structural · ${result.result.pattern}`
+							: result.kind === "social"
+							? `social · ${result.result.developers.length} devs · ${result.result.files.length} files`
 							: result.kind,
 				},
 				...(result.kind === "hybrid" || result.kind === "social"
 					? [
 							{ label: "Model", value: result.result.model },
-							{
-								label: "Input tokens",
-								value: result.result.usage.inputTokens,
-							},
-							{
-								label: "Output tokens",
-								value: result.result.usage.outputTokens,
-							},
+							{ label: "Input tokens", value: result.result.usage.inputTokens },
+							{ label: "Output tokens", value: result.result.usage.outputTokens },
 						]
 					: []),
-				{ label: "Duration", value: `${durationMs}ms` },
+				{ label: "Classifier", value: `${result.timings.classifierMs}ms` },
+				{ label: "Duration", value: `${result.timings.totalMs}ms` },
 			]
 		: [];
 
@@ -398,6 +398,8 @@ function QueryUI({ question, options }: QueryUIProps) {
 
 						{options.onComplete && (
 							<PostRunOptions
+								nextPhaseLabel={options.nextPhaseLabel}
+								repeatLabel="Ask another question"
 								onComplete={(action) => {
 									exit();
 									options.onComplete!(action);

@@ -2,10 +2,11 @@
 import { Command } from "commander";
 import { runInit } from "./commands/init.js";
 import { runIngest } from "./commands/ingest.js";
-import { runAnalyze, runServe } from "./commands/stubs.js";
+import { runAnalyze } from "./commands/stubs.js";
 import { runMine } from "./commands/mine.js";
 import { runEmbed } from "./commands/embed.js";
 import { runQuery } from "./commands/query.js";
+import { runUi } from "./commands/ui.js";
 
 const program = new Command();
 
@@ -73,14 +74,15 @@ program
 		runEmbed(options),
 	);
 
-// ─── serve ───────────────────────────────────────────────────────────────────
+// ─── ui ──────────────────────────────────────────────────────────────────────
 
 program
-	.command("serve")
+	.command("ui")
+	.alias("serve")
 	.description(
-		"Launch the CODEX web UI on localhost (requires prior ingest + embed)",
+		"Launch the CODEX web UI on localhost (starts backend + frontend dev servers)",
 	)
-	.action(() => runServe());
+	.action(() => runUi());
 
 // ─── query ───────────────────────────────────────────────────────────────────
 

@@ -14,11 +14,13 @@ import os from "node:os";
 import { Box, Text, render, useApp, useInput } from "ink";
 import { Layout } from "../ui/Layout.js";
 import { runIngest } from "./ingest.js";
-import { runAnalyze, runServe } from "./stubs.js";
+import { runAnalyze } from "./stubs.js";
+import { runUi } from "./ui.js";
 import { runMine } from "./mine.js";
 import { runEmbed } from "./embed.js";
 import { runQuery } from "./query.js";
 import type { PostRunAction } from "../ui/PostRunOptions.js";
+import { loadConfig, saveConfig, configFilePath } from "../config.js";
 
 // ─── Path input with tab completion ───────────────────────────────────────────
 
@@ -215,6 +217,13 @@ const COMMANDS: CommandDef[] = [
 				available: true,
 				choices: ["siliconflow", "openai"],
 			},
+			{
+				key: "model",
+				flag: "--model",
+				description: "Embedding model",
+				default: process.env["EMBEDDING_MODEL"] ?? "",
+				available: true,
+			},
 		],
 	},
 	{
@@ -243,6 +252,20 @@ const COMMANDS: CommandDef[] = [
 				default: "siliconflow",
 				available: true,
 				choices: ["siliconflow", "openai", "anthropic", "gemini"],
+			},
+			{
+				key: "model",
+				flag: "--model",
+				description: "Synthesis model",
+				default: process.env["LLM_MODEL"] ?? "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+				available: true,
+			},
+			{
+				key: "classifierModel",
+				flag: "--classifier",
+				description: "Classifier model",
+				default: process.env["CLASSIFIER_MODEL"] ?? "Qwen/Qwen3-14B",
+				available: true,
 			},
 		],
 	},
@@ -275,10 +298,20 @@ const COMMANDS: CommandDef[] = [
 		name: "serve",
 		description: "Launch web UI",
 		detail:
-			"Starts the CODEX frontend on localhost (requires prior ingest + embed).",
+			"Starts the CODEX backend + frontend on localhost and opens the browser.",
 		phase: "Phase 4",
-		available: false,
+		available: true,
 		needsPath: false,
+		options: [],
+	},
+	{
+		name: "settings",
+		description: "Configure defaults",
+		detail: `Edit default project path and other CLI settings stored in ${configFilePath}`,
+		phase: "Config ",
+		available: true,
+		needsPath: true,
+		pathLabel: "project path",
 		options: [],
 	},
 ];
@@ -401,7 +434,10 @@ function cycleChoice(choices: string[], current: string, dir: 1 | -1): string {
 }
 
 function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
-	const [path, setPath] = useState(cmd.pathIsText ? "" : ".");
+	const savedPath = loadConfig().projectPath ?? "";
+	const [path, setPath] = useState(
+		cmd.pathIsText ? "" : savedPath || ".",
+	);
 	const [opts, setOpts] = useState<OptionValues>(
 		Object.fromEntries(cmd.options.map((o) => [o.key, o.default])),
 	);
@@ -423,6 +459,9 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 		return fs.existsSync(expanded) ? null : "path not found";
 	}
 
+	// When the only field is path (no options), require an explicit confirm step
+	const [readyToRun, setReadyToRun] = useState(false);
+
 	function advanceFromPath() {
 		if (cmd.needsPath) {
 			const err = validatePath(path);
@@ -432,17 +471,33 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 			}
 			setPathError(null);
 		}
-		if (focusOrder.length > 1) setFocusIdx(1);
-		else onConfirm(path, opts);
+		if (focusOrder.length > 1) {
+			setFocusIdx(1);
+		} else {
+			// Only field was path — show confirm prompt instead of running immediately
+			setReadyToRun(true);
+		}
 	}
 
 	// Suppress our own arrow-key handler while typing in the text input
-	const isTyping = focused === "path";
+	const isTyping = focused === "path" && !readyToRun;
 
 	useInput((input, key) => {
 		if (key.escape) {
 			onBack();
 			return;
+		}
+
+		// Backspace goes back to previous field (when not typing in text input)
+		if (key.backspace && !isTyping) {
+			if (readyToRun) {
+				setReadyToRun(false);
+				return;
+			}
+			if (focusIdx > 0) {
+				setFocusIdx((i) => i - 1);
+				return;
+			}
 		}
 
 		if (!isTyping) {
@@ -488,6 +543,10 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 		}
 
 		if (key.return && !isTyping) {
+			if (readyToRun) {
+				onConfirm(path, opts);
+				return;
+			}
 			if (focusIdx === focusOrder.length - 1) {
 				if (cmd.needsPath) {
 					const err = validatePath(path);
@@ -596,21 +655,33 @@ function ConfigStage({ cmd, onConfirm, onBack }: ConfigStageProps) {
 				);
 			})}
 
-			{/* Confirm row hint */}
-			<Box gap={3} marginTop={1}>
-				<Text dimColor>↑↓ navigate</Text>
-				{isTyping ? (
-					<Text dimColor>↵ next field</Text>
-				) : typeof focused === "number" && cmd.options[focused]?.choices ? (
-					<Text dimColor>‹› cycle</Text>
-				) : (
-					<Text dimColor>[space] toggle</Text>
-				)}
-				<Text dimColor>
-					↵ {focusIdx === focusOrder.length - 1 ? "run" : "next"}
-				</Text>
-				<Text dimColor>esc back</Text>
-			</Box>
+			{/* Ready-to-run confirmation */}
+			{readyToRun && (
+				<Box paddingX={1} marginTop={1}>
+					<Text color="green" bold>
+						Press ↵ to run · esc main menu · ⌫ edit
+					</Text>
+				</Box>
+			)}
+
+			{/* Keyboard hints — always visible */}
+			{!readyToRun && (
+				<Box gap={3} marginTop={1}>
+					<Text dimColor>esc main menu</Text>
+					{focusIdx > 0 && <Text dimColor>⌫ previous</Text>}
+					<Text dimColor>↑↓ navigate</Text>
+					{isTyping ? (
+						<Text dimColor>↵ next</Text>
+					) : typeof focused === "number" && cmd.options[focused]?.choices ? (
+						<Text dimColor>‹› cycle</Text>
+					) : typeof focused === "number" ? (
+						<Text dimColor>[space] toggle</Text>
+					) : null}
+					<Text dimColor>
+						↵ {focusIdx === focusOrder.length - 1 ? "run" : "next"}
+					</Text>
+				</Box>
+			)}
 		</Box>
 	);
 }
@@ -649,10 +720,23 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 			return;
 		}
 		setChosenCmd(cmd);
+		// Skip config entirely for commands with nothing to configure
+		const hasOptions = cmd.options?.some((o) => o.available !== false);
+		if (!cmd.needsPath && !hasOptions) {
+			setStage("run");
+			setTimeout(() => launchCommand(cmd.name, "", {}), 50);
+			return;
+		}
 		setStage("config");
 	}
 
 	function launchCommand(name: string, targetPath: string, opts: OptionValues) {
+		// Persist project path for commands that take a filesystem path
+		const cmd = COMMANDS.find((c) => c.name === name);
+		if (cmd?.needsPath && !cmd.pathIsText && targetPath && targetPath !== ".") {
+			saveConfig({ projectPath: nodePath.resolve(targetPath) });
+		}
+
 		const next = PHASE_NEXT[name];
 
 		const onComplete = (action: PostRunAction) => {
@@ -661,6 +745,11 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 				// options before running it
 				const nextCmd = COMMANDS.find((c) => c.name === next.name);
 				render(<InitUI initialCmd={nextCmd} />);
+			} else if (action === "repeat") {
+				// Re-run the same command (e.g. ask another question)
+				const sameCmd = COMMANDS.find((c) => c.name === name);
+				if (sameCmd) render(<InitUI initialCmd={sameCmd} />);
+				else render(<InitUI />);
 			} else {
 				// Return to the command picker
 				render(<InitUI />);
@@ -679,6 +768,7 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 				runEmbed({
 					clean: !!opts["clean"],
 					provider: String(opts["provider"] ?? "siliconflow"),
+					model: opts["model"] ? String(opts["model"]) : undefined,
 					onComplete,
 					nextPhaseLabel: next?.label,
 				});
@@ -690,6 +780,8 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 						| "standard"
 						| "full",
 					provider: String(opts["provider"] ?? "siliconflow"),
+					model: opts["model"] ? String(opts["model"]) : undefined,
+					classifierModel: opts["classifierModel"] ? String(opts["classifierModel"]) : undefined,
 					onComplete,
 					nextPhaseLabel: next?.label,
 				});
@@ -705,8 +797,20 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 				});
 				break;
 			case "serve":
-				runServe();
+				runUi();
 				break;
+			case "settings": {
+				const absPath = nodePath.resolve(targetPath.replace(/^~/, os.homedir()));
+				saveConfig({ projectPath: absPath });
+				render(
+					<Box flexDirection="column" padding={1}>
+						<Text color="green">✓ Default project path saved:</Text>
+						<Text dimColor>  {absPath}</Text>
+						<Text dimColor>  Config: {configFilePath}</Text>
+					</Box>,
+				);
+				break;
+			}
 			default:
 				exit();
 		}

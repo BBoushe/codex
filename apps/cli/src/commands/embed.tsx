@@ -6,8 +6,8 @@
  * The token ticker footer shows live embedding token consumption.
  */
 
-import React, { useState, useEffect } from "react";
-import { Box, Text, render, useApp } from "ink";
+import { useState, useEffect } from "react";
+import { Box, Text, Static, render, useApp } from "ink";
 import neo4j from "neo4j-driver";
 import {
 	createSiliconFlowEmbeddingProvider,
@@ -41,20 +41,33 @@ const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD ?? "";
 export interface EmbedOptions {
 	clean?: boolean;
 	provider?: string;
+	/** Override the embedding model (default: provider-specific default). */
+	model?: string;
 	onComplete?: (action: PostRunAction) => void;
 	nextPhaseLabel?: string;
 }
 
 type Phase = "connectNeo4j" | "connectChroma" | "fetch" | "embed";
 
-interface PhaseState {
+interface PhaseEntry {
+	phase: Phase;
+	label: string;
 	status: StepStatus;
 	detail: string;
 }
 
+const STEP_LABELS: Record<Phase, string> = {
+	connectNeo4j: "Connect to Neo4j",
+	connectChroma: "Connect to ChromaDB",
+	fetch: "Fetch embeddable entities",
+	embed: "Embed & index in ChromaDB",
+};
+
+const PHASE_ORDER: Phase[] = ["connectNeo4j", "connectChroma", "fetch", "embed"];
+
 // ─── Provider factory ────────────────────────────────────────────────────────
 
-function createProvider(providerName: string): EmbeddingProvider {
+function createProvider(providerName: string, modelOverride?: string): EmbeddingProvider {
 	switch (providerName) {
 		case "openai": {
 			const apiKey = process.env.OPENAI_API_KEY;
@@ -64,7 +77,10 @@ function createProvider(providerName: string): EmbeddingProvider {
 				);
 				process.exit(1);
 			}
-			return createOpenAIEmbeddingProvider({ apiKey });
+			return createOpenAIEmbeddingProvider({
+				apiKey,
+				...(modelOverride ? { model: modelOverride } : {}),
+			});
 		}
 		case "siliconflow":
 		default: {
@@ -75,7 +91,10 @@ function createProvider(providerName: string): EmbeddingProvider {
 				);
 				process.exit(1);
 			}
-			return createSiliconFlowEmbeddingProvider({ apiKey });
+			return createSiliconFlowEmbeddingProvider({
+				apiKey,
+				...(modelOverride ? { model: modelOverride } : {}),
+			});
 		}
 	}
 }
@@ -91,12 +110,9 @@ interface EmbedUIProps {
 function EmbedUI({ options, onComplete, nextPhaseLabel }: EmbedUIProps) {
 	const { exit } = useApp();
 
-	const [phases, setPhases] = useState<Record<Phase, PhaseState>>({
-		connectNeo4j: { status: "pending", detail: "" },
-		connectChroma: { status: "pending", detail: "" },
-		fetch: { status: "pending", detail: "" },
-		embed: { status: "pending", detail: "" },
-	});
+	const [donePhases, setDonePhases] = useState<PhaseEntry[]>([]);
+	const [activePhase, setActivePhase] = useState<Phase>("connectNeo4j");
+	const [activeDetail, setActiveDetail] = useState("");
 
 	const [error, setError] = useState<string | null>(null);
 	const [done, setDone] = useState(false);
@@ -108,11 +124,24 @@ function EmbedUI({ options, onComplete, nextPhaseLabel }: EmbedUIProps) {
 		total: number;
 	} | null>(null);
 
-	const set = (phase: Phase, patch: Partial<PhaseState>) =>
-		setPhases((prev) => ({
+	function completePhase(phase: Phase, detail: string, status: StepStatus = "done") {
+		setDonePhases((prev) => [
 			...prev,
-			[phase]: { ...prev[phase], ...patch },
-		}));
+			{ phase, label: STEP_LABELS[phase], status, detail },
+		]);
+		const nextIdx = PHASE_ORDER.indexOf(phase) + 1;
+		if (nextIdx < PHASE_ORDER.length) {
+			setActivePhase(PHASE_ORDER[nextIdx]!);
+			setActiveDetail("");
+		}
+	}
+
+	function failPhase(phase: Phase, detail: string) {
+		setDonePhases((prev) => [
+			...prev,
+			{ phase, label: STEP_LABELS[phase], status: "failed", detail },
+		]);
+	}
 
 	useEffect(() => {
 		run().catch((err) => {
@@ -124,10 +153,10 @@ function EmbedUI({ options, onComplete, nextPhaseLabel }: EmbedUIProps) {
 
 	async function run() {
 		const providerName = options.provider ?? "siliconflow";
-		const provider = createProvider(providerName);
+		const provider = createProvider(providerName, options.model || undefined);
 
 		// ── 1. Connect to Neo4j ──────────────────────────────────────────
-		set("connectNeo4j", { status: "running", detail: NEO4J_URI });
+		setActiveDetail(NEO4J_URI);
 		const driver = neo4j.driver(
 			NEO4J_URI,
 			neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD),
@@ -135,45 +164,32 @@ function EmbedUI({ options, onComplete, nextPhaseLabel }: EmbedUIProps) {
 		try {
 			await driver.verifyConnectivity();
 		} catch {
-			set("connectNeo4j", {
-				status: "failed",
-				detail: "could not reach Neo4j — is Docker running?",
-			});
+			failPhase("connectNeo4j", "could not reach Neo4j — is Docker running?");
 			await driver.close();
 			exit(new Error("Neo4j unreachable"));
 			return;
 		}
-		set("connectNeo4j", { status: "done", detail: NEO4J_URI });
+		completePhase("connectNeo4j", NEO4J_URI);
 
 		// ── 2. Connect to ChromaDB ───────────────────────────────────────
-		set("connectChroma", { status: "running", detail: "" });
 		const chromaClient = createChromaClient();
 		try {
 			await verifyChromaConnectivity(chromaClient);
 		} catch {
-			set("connectChroma", {
-				status: "failed",
-				detail: "could not reach ChromaDB — is Docker running?",
-			});
+			failPhase("connectChroma", "could not reach ChromaDB — is Docker running?");
 			await driver.close();
 			exit(new Error("ChromaDB unreachable"));
 			return;
 		}
-		set("connectChroma", {
-			status: "done",
-			detail: process.env.CHROMA_URL ?? "http://localhost:8000",
-		});
+		completePhase("connectChroma", process.env.CHROMA_URL ?? "http://localhost:8000");
 
 		// ── 3. Fetch embeddable entities ─────────────────────────────────
-		set("fetch", { status: "running", detail: "querying Neo4j..." });
+		setActiveDetail("querying Neo4j...");
 		const entities = await fetchEmbeddableNodes(driver);
 
 		if (entities.length === 0) {
-			set("fetch", {
-				status: "done",
-				detail: "0 entities found — run `codex ingest` first",
-			});
-			set("embed", { status: "done", detail: "nothing to embed" });
+			completePhase("fetch", "0 entities found — run `codex ingest` first");
+			completePhase("embed", "nothing to embed");
 			await driver.close();
 			setDone(true);
 			exit();
@@ -187,16 +203,10 @@ function EmbedUI({ options, onComplete, nextPhaseLabel }: EmbedUIProps) {
 		const breakdown = Array.from(labelCounts.entries())
 			.map(([l, c]) => `${c} ${l}`)
 			.join(", ");
-		set("fetch", {
-			status: "done",
-			detail: `${entities.length} entities (${breakdown})`,
-		});
+		completePhase("fetch", `${entities.length} entities (${breakdown})`);
 
 		// ── 4. Embed & index ─────────────────────────────────────────────
-		set("embed", {
-			status: "running",
-			detail: `${provider.providerName} / ${provider.modelId}`,
-		});
+		setActiveDetail(`${provider.providerName} / ${provider.modelId}`);
 
 		let stats: EmbedStats;
 		try {
@@ -207,34 +217,24 @@ function EmbedUI({ options, onComplete, nextPhaseLabel }: EmbedUIProps) {
 				clean: options.clean,
 				onProgress: (embedded, total) => {
 					setEmbedProgress({ done: embedded, total });
-					set("embed", {
-						status: "running",
-						detail: `${embedded} / ${total} entities`,
-					});
+					setActiveDetail(`${embedded} / ${total} entities`);
 				},
 				onRetry: (attempt, delayMs) => {
-					set("embed", {
-						status: "running",
-						detail: `retry ${attempt} in ${delayMs}ms...`,
-					});
+					setActiveDetail(`retry ${attempt} in ${delayMs}ms...`);
 				},
 			});
 		} catch (err) {
-			set("embed", {
-				status: "failed",
-				detail:
-					err instanceof Error ? err.message : String(err),
-			});
+			failPhase("embed", err instanceof Error ? err.message : String(err));
 			await driver.close();
 			exit(new Error("Embedding pipeline failed"));
 			return;
 		}
 
 		setEmbedProgress(null);
-		set("embed", {
-			status: stats.entitiesFailed > 0 ? "done" : "done",
-			detail: `${stats.entitiesEmbedded} embedded · ${stats.totalTokens} tokens · ${stats.durationMs}ms`,
-		});
+		completePhase(
+			"embed",
+			`${stats.entitiesEmbedded} embedded · ${stats.totalTokens} tokens · ${stats.durationMs}ms`,
+		);
 
 		await driver.close();
 
@@ -269,66 +269,62 @@ function EmbedUI({ options, onComplete, nextPhaseLabel }: EmbedUIProps) {
 		if (!onComplete) exit();
 	}
 
-	const STEP_LABELS: Record<Phase, string> = {
-		connectNeo4j: "Connect to Neo4j",
-		connectChroma: "Connect to ChromaDB",
-		fetch: "Fetch embeddable entities",
-		embed: "Embed & index in ChromaDB",
-	};
-
 	return (
 		<Layout showHeader={false} command="embed" showTokenTicker={true}>
-			<Box flexDirection="column" paddingY={1}>
-				<Box flexDirection="column" marginTop={1}>
-					{(Object.keys(phases) as Phase[]).map((phase) => (
-						<React.Fragment key={phase}>
-							<Step
-								label={STEP_LABELS[phase]}
-								status={phases[phase].status}
-								detail={phases[phase].detail}
-							/>
-							{phase === "embed" &&
-								phases[phase].status === "running" &&
-								embedProgress &&
-								embedProgress.total > 0 && (
-									<Box paddingLeft={2}>
-										<ProgressBar
-											value={
-												embedProgress.done /
-												embedProgress.total
-											}
-											width={24}
-										/>
-									</Box>
-								)}
-						</React.Fragment>
-					))}
-				</Box>
-
-				{error && (
-					<Box marginTop={1}>
-						<Text color="red">Error: {error}</Text>
-					</Box>
-				)}
-
-				{done && <SummaryTable title="Summary" rows={summary} />}
-
-				{done && onComplete && (
-					<PostRunOptions
-						nextPhaseLabel={nextPhaseLabel}
-						onComplete={(action) => {
-							exit();
-							onComplete(action);
-						}}
+			{/* Completed steps — rendered once via Static */}
+			<Static items={donePhases}>
+				{(entry) => (
+					<Step
+						key={entry.phase}
+						label={entry.label}
+						status={entry.status}
+						detail={entry.detail}
 					/>
 				)}
+			</Static>
 
-				{!done && (
-					<Box marginTop={1}>
-						<Text dimColor>^C to abort</Text>
-					</Box>
-				)}
-			</Box>
+			{/* Active step */}
+			{!done && (
+				<Box flexDirection="column">
+					<Step
+						label={STEP_LABELS[activePhase]}
+						status="running"
+						detail={activeDetail}
+					/>
+					{activePhase === "embed" && embedProgress && embedProgress.total > 0 && (
+						<Box paddingLeft={2}>
+							<ProgressBar
+								value={embedProgress.done / embedProgress.total}
+								width={24}
+							/>
+						</Box>
+					)}
+				</Box>
+			)}
+
+			{error && (
+				<Box marginTop={1}>
+					<Text color="red">Error: {error}</Text>
+				</Box>
+			)}
+
+			{done && <SummaryTable title="Run summary" rows={summary} />}
+
+			{done && onComplete && (
+				<PostRunOptions
+					nextPhaseLabel={nextPhaseLabel}
+					onComplete={(action) => {
+						exit();
+						onComplete(action);
+					}}
+				/>
+			)}
+
+			{!done && (
+				<Box marginTop={1}>
+					<Text dimColor>^C to abort</Text>
+				</Box>
+			)}
 		</Layout>
 	);
 }

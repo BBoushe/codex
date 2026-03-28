@@ -106,11 +106,12 @@ function TokenTicker() {
 	const [stats, setStats] = useState(tokenStore.getState());
 
 	useEffect(() => {
-		// Subscribe to store changes and re-render
 		return tokenStore.subscribe((s) => setStats({ ...s }));
 	}, []);
 
-	const total = stats.embedded + stats.llmInput + stats.llmOutput;
+	const sessionTotal = stats.embedded + stats.llmInput + stats.llmOutput;
+	const queryTotal =
+		stats.currentEmbedded + stats.currentLlmInput + stats.currentLlmOutput;
 
 	return (
 		<Box
@@ -121,6 +122,15 @@ function TokenTicker() {
 			marginTop={1}
 		>
 			<Text dimColor>tokens</Text>
+
+			{/* Per-query subtotal (only shown when a query is in progress or just finished) */}
+			{queryTotal > 0 && (
+				<Box gap={1}>
+					<Text dimColor>query</Text>
+					<Text color="yellow">{fmt(queryTotal)}</Text>
+				</Box>
+			)}
+
 			<Box gap={1}>
 				<Text dimColor>embed</Text>
 				<Text color="cyan">{fmt(stats.embedded)}</Text>
@@ -135,7 +145,7 @@ function TokenTicker() {
 			</Box>
 			<Box gap={1}>
 				<Text dimColor>total</Text>
-				<Text color={total > 0 ? "white" : "gray"}>{fmt(total)}</Text>
+				<Text color={sessionTotal > 0 ? "white" : "gray"}>{fmt(sessionTotal)}</Text>
 			</Box>
 		</Box>
 	);
