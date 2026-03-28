@@ -75,7 +75,15 @@ There are three routing options:
    The "from" side is the unknown result when direction is "incoming". The "to" side is the unknown result when direction is "outgoing".
    Omit fields you don't need (e.g. if no label constraint, omit "label"). Use the edge types from the schema above.
 
-2. **social** — The question is about people, developer activity, code churn, or hotspots: who wrote code, who has expertise, who to ask about something, which files change the most, what are the hotspots.
+2. **social** — The question is about PEOPLE (developers, authors, contributors), developer activity, code churn, or hotspots: who *wrote* code, who *has expertise*, who *to ask* about something, which files change the most, what are the hotspots.
+   IMPORTANT: "who/what calls X?", "who imports X?", "who uses X?" are asking about CODE ENTITIES (functions, files), NOT people → classify as structural, not social.
+   Only classify as social when the question is about DEVELOPERS (humans, authors), not about which code entity does something.
+   Examples:
+   - "Who calls fetchPosts?" → structural (asking which functions/files call it)
+   - "Who wrote fetchPosts?" → social (asking about the developer/author)
+   - "Who imports utils.ts?" → structural (asking which files import it)
+   - "Who has expertise in utils.ts?" → social (asking about developer knowledge)
+   - "Who is the main contributor?" → social (asking about a person)
    Output: { "kind": "social", "extractedName": "<developer name, file/module name if mentioned, otherwise empty string>" }
 
 3. **hybrid** — The question describes behavior, asks about concepts, or requires understanding what code DOES.

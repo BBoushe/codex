@@ -19,6 +19,7 @@ import type { EmbeddingProvider, LLMProvider } from "@codex/shared";
 import { tokenTracker } from "@codex/shared";
 import {
 	getOrCreateEntityCollection,
+	getCollectionInfo,
 	searchEntities,
 } from "@codex/vector-client";
 import { expandContext, executeStructuralSpec } from "@codex/graph-client";
@@ -87,6 +88,7 @@ export async function runSearch(
 	query: string,
 	options: HybridPipelineOptions,
 ): Promise<SearchResult> {
+	tokenTracker.resetCurrentQuery();
 	const totalStart = Date.now();
 	const timings = emptyTimings();
 
@@ -151,18 +153,37 @@ export async function runHybridSearch(
 	const queryVector = await options.embeddingProvider.embedOne(query);
 	t.embeddingMs = Date.now() - embedStart;
 
-	// 2. Vector search
+	// 2. Pre-flight: check collection has data
+	const collectionInfo = await getCollectionInfo(options.chromaClient);
+	if (collectionInfo.count === 0) {
+		console.warn("[RAG] ChromaDB collection is empty — no embeddings have been indexed.");
+		return {
+			answer:
+				"No code embeddings found in the vector index. Please run `codex embed` first to index the codebase.",
+			model: "n/a",
+			anchors: [],
+			referencedNodeIds: [],
+			usage: { inputTokens: 0, outputTokens: 0 },
+			durationMs: Date.now() - startTime,
+		};
+	}
+
+	// 3. Vector search
 	const vecStart = Date.now();
 	const collection = await getOrCreateEntityCollection(options.chromaClient);
 	const anchors = await searchEntities(collection, queryVector, topK);
 	t.vectorSearchMs = Date.now() - vecStart;
 
 	if (anchors.length === 0) {
-		// No results — synthesize an honest "nothing found" answer
+		// No results despite non-empty collection — likely a dimension mismatch or query issue
+		console.warn(
+			`[RAG] Vector search returned 0 results. queryVector.length=${queryVector.length}, collection.count=${collectionInfo.count}. ` +
+			`This may indicate an embedding dimension mismatch. Re-run 'codex embed' with the same embedding provider used at query time.`,
+		);
 		const emptyContext = {
-			text: "(No matching code entities found in the index.)",
+			text: `(No matching code entities found. The collection has ${collectionInfo.count} embeddings but the query vector (${queryVector.length} dims) returned no matches. This may be a dimension mismatch — try re-running \`codex embed\`.)`,
 			referencedNodeIds: [],
-			charCount: 48,
+			charCount: 200,
 			wasTruncated: false,
 		};
 		const synthStart = Date.now();
