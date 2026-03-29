@@ -196,6 +196,13 @@ const COMMANDS: CommandDef[] = [
 				default: process.env["EMBEDDING_MODEL"] ?? "",
 				available: true,
 			},
+			{
+				key: "enrichFiles",
+				flag: "--no-enrich",
+				description: "Skip File metadata enrichment",
+				default: false,
+				available: true,
+			},
 		],
 	},
 	{
@@ -252,6 +259,13 @@ const COMMANDS: CommandDef[] = [
 				flag: "--model",
 				description: "Embedding model",
 				default: process.env["EMBEDDING_MODEL"] ?? "",
+				available: true,
+			},
+			{
+				key: "enrichFiles",
+				flag: "--no-enrich",
+				description: "Skip File metadata enrichment",
+				default: false,
 				available: true,
 			},
 		],
@@ -833,6 +847,7 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 					clean: !!opts["clean"],
 					provider: String(opts["provider"] ?? "siliconflow"),
 					model: opts["model"] ? String(opts["model"]) : undefined,
+					enrichFiles: !opts["enrichFiles"], // flag is --no-enrich, so invert
 					onComplete,
 					nextPhaseLabel: next?.label,
 				});
@@ -857,6 +872,7 @@ function InitUI({ initialCmd }: InitUIProps = {}) {
 					serve: !!opts["serve"],
 					provider: String(opts["provider"] ?? "siliconflow"),
 					model: opts["model"] ? String(opts["model"]) : undefined,
+					enrichFiles: !opts["enrichFiles"], // flag is --no-enrich, so invert
 					onComplete,
 				});
 				break;

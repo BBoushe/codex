@@ -46,13 +46,15 @@ program
 	.option("--serve", "launch web UI after pipeline completes", false)
 	.option("--provider <name>", "embedding provider (siliconflow | openai)", "siliconflow")
 	.option("--model <model>", "embedding model override")
-	.action((targetPath: string, options: { clean: boolean; skipMine: boolean; serve: boolean; provider: string; model?: string }) => {
+	.option("--no-enrich", "skip File metadata enrichment")
+	.action((targetPath: string, options: { clean: boolean; skipMine: boolean; serve: boolean; provider: string; model?: string; enrich: boolean }) => {
 		runAnalyze(targetPath, {
 			clean: options.clean,
 			skipMine: options.skipMine,
 			serve: options.serve,
 			provider: options.provider,
 			model: options.model,
+			enrichFiles: options.enrich,
 		});
 	});
 
@@ -83,8 +85,9 @@ program
 		"embedding provider (siliconflow | openai)",
 		"siliconflow",
 	)
-	.action((options: { clean: boolean; provider: string }) =>
-		runEmbed(options),
+	.option("--no-enrich", "skip File metadata enrichment")
+	.action((options: { clean: boolean; provider: string; enrich: boolean }) =>
+		runEmbed({ ...options, enrichFiles: options.enrich }),
 	);
 
 // ─── ui ──────────────────────────────────────────────────────────────────────

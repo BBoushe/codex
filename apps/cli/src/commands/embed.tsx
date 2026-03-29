@@ -43,6 +43,8 @@ export interface EmbedOptions {
 	provider?: string;
 	/** Override the embedding model (default: provider-specific default). */
 	model?: string;
+	/** Embed File metadata alongside code entities (default: true). */
+	enrichFiles?: boolean;
 	onComplete?: (action: PostRunAction) => void;
 	nextPhaseLabel?: string;
 }
@@ -215,6 +217,7 @@ function EmbedUI({ options, onComplete, nextPhaseLabel }: EmbedUIProps) {
 				chromaClient,
 				embeddingProvider: provider,
 				clean: options.clean,
+				enrichFiles: options.enrichFiles,
 				onProgress: (embedded, total) => {
 					setEmbedProgress({ done: embedded, total });
 					setActiveDetail(`${embedded} / ${total} entities`);
@@ -245,7 +248,9 @@ function EmbedUI({ options, onComplete, nextPhaseLabel }: EmbedUIProps) {
 				{ label: "Model", value: stats.model },
 				{
 					label: "Entities embedded",
-					value: stats.entitiesEmbedded,
+					value: stats.fileCount
+						? `${stats.entitiesEmbedded} (${stats.entitiesEmbedded - stats.fileCount} code + ${stats.fileCount} file metadata)`
+						: stats.entitiesEmbedded,
 				},
 				{ label: "Tokens consumed", value: stats.totalTokens },
 				{

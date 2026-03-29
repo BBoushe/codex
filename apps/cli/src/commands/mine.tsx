@@ -249,6 +249,15 @@ function MineUI({ targetPath, options, onComplete, nextPhaseLabel }: MineUIProps
 				</Box>
 			)}
 
+			{done && !onComplete && (
+				<Box marginTop={1}>
+					<Text color="yellow">Tip: </Text>
+					<Text dimColor>Run </Text>
+					<Text color="cyan">codex embed</Text>
+					<Text dimColor> to update file metadata with churn data.</Text>
+				</Box>
+			)}
+
 			{done && onComplete && (
 				<PostRunOptions
 					nextPhaseLabel={nextPhaseLabel}

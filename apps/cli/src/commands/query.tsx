@@ -32,6 +32,7 @@ import {
 	type StructuralSearchResult,
 	type HybridSearchResult,
 	type SocialSearchResult,
+	type PropertySearchResult,
 	type FileChurnInfo,
 } from "@codex/rag";
 import { Layout } from "../ui/Layout.js";
@@ -225,6 +226,33 @@ function SocialResult({ result }: { result: SocialSearchResult }) {
 	);
 }
 
+function PropertyResult({ result }: { result: PropertySearchResult }) {
+	return (
+		<Box flexDirection="column" marginTop={1} gap={1}>
+			<Text bold color="cyan">Answer</Text>
+			<Box borderStyle="round" borderColor="gray" paddingX={2} paddingY={1} flexDirection="column">
+				<Text>{result.answer}</Text>
+			</Box>
+			{result.entities.length > 0 && (
+				<Box flexDirection="column" gap={0}>
+					<Text bold dimColor>
+						{result.property} ranking ({result.entities.length} result{result.entities.length !== 1 ? "s" : ""})
+					</Text>
+					{result.entities.map((entity, i) => (
+						<Box key={entity.nodeId} gap={2} paddingLeft={2}>
+							<Text dimColor>{String(i + 1).padStart(2)}.</Text>
+							<Text bold>{entity.name || entity.filePath}</Text>
+							<Text color="cyan">{entity.value} {result.unit}</Text>
+							<Text dimColor>[{entity.label}]</Text>
+							{entity.name && <Text dimColor>{entity.filePath}</Text>}
+						</Box>
+					))}
+				</Box>
+			)}
+		</Box>
+	);
+}
+
 // ─── Spinner ──────────────────────────────────────────────────────────────────
 
 function Spinner({ label }: { label: string }) {
@@ -327,6 +355,7 @@ function QueryUI({ question, options }: QueryUIProps) {
 			case "structural": return `structural → ${intent.spec.edge} (${intent.spec.direction})`;
 			case "social": return `social → "${intent.extractedName || "(no name)"}"`;
 			case "hybrid": return `hybrid/${intent.subKind} · K=${intent.topK}${intent.wasFallback ? " (fallback)" : ""}`;
+			case "property": return `property → ${intent.label}.${intent.property} (${intent.order}, limit ${intent.limit})`;
 		}
 	}
 
@@ -342,10 +371,12 @@ function QueryUI({ question, options }: QueryUIProps) {
 							? `structural · ${result.result.pattern}`
 							: result.kind === "social"
 							? `social · ${result.result.developers.length} devs · ${result.result.files.length} files`
+							: result.kind === "property"
+							? `property · ${result.result.entities.length} results · ${result.result.property}`
 							: result.kind,
 				},
 				{ label: "Intent", value: formatIntent(result) },
-				...(result.kind === "hybrid" || result.kind === "social"
+				...(result.kind === "hybrid" || result.kind === "social" || result.kind === "property"
 					? [
 							{ label: "Model", value: result.result.model },
 							{ label: "Input tokens", value: result.result.usage.inputTokens },
@@ -395,6 +426,9 @@ function QueryUI({ question, options }: QueryUIProps) {
 						)}
 						{result.kind === "social" && (
 							<SocialResult result={result.result} />
+						)}
+						{result.kind === "property" && (
+							<PropertyResult result={result.result} />
 						)}
 						{result.kind === "path" && (
 							<Box marginTop={1}>

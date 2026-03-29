@@ -66,6 +66,8 @@ export interface AnalyzeOptions {
 	serve?: boolean;
 	provider?: string;
 	model?: string;
+	/** Embed File metadata alongside code entities (default: true). */
+	enrichFiles?: boolean;
 	onComplete?: (action: PostRunAction) => void;
 }
 
@@ -432,6 +434,7 @@ function AnalyzeUI({ targetPath, options, onComplete }: AnalyzeUIProps) {
 					clean: false, // Collection already handled above
 					skipIds,
 					prefetchedEntities: allEntities, // Avoid redundant Neo4j fetch
+					enrichFiles: options.enrichFiles,
 					onProgress: (embedded, total) => {
 						setEmbedProgress({ done: embedded, total });
 						setActiveDetail(`${embedded} / ${total} new entities`);
