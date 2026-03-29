@@ -26,6 +26,8 @@ function answerPreview(result: SearchResult): string {
 			return `${result.result.entities.length} entit${result.result.entities.length === 1 ? "y" : "ies"} — ${result.result.pattern}`;
 		case "path":
 			return `Path with ${result.result.hops} hop${result.result.hops === 1 ? "" : "s"}`;
+		case "property":
+			return result.result.answer.slice(0, 90).replace(/\n/g, " ");
 	}
 }
 

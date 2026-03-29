@@ -121,7 +121,8 @@ export type QueryIntent =
 			wasFallback: false;
 	  }
 	| { kind: "social"; extractedName: string; wasFallback: false }
-	| { kind: "hybrid"; subKind: HybridSubKind; topK: number; wasFallback: boolean };
+	| { kind: "hybrid"; subKind: HybridSubKind; topK: number; wasFallback: boolean }
+	| { kind: "property"; label: string; property: string; order: "asc" | "desc"; limit: number; wasFallback: false };
 
 export interface PipelineTimings {
 	classifierMs: number;
@@ -168,10 +169,27 @@ export interface SocialSearchResult {
 	usage: { inputTokens: number; outputTokens: number };
 }
 
+export interface PropertySearchResult {
+	query: string;
+	property: string;
+	unit: string;
+	entities: Array<{
+		nodeId: string;
+		name: string;
+		filePath: string;
+		label: string;
+		value: number;
+	}>;
+	answer: string;
+	model: string;
+	usage: { inputTokens: number; outputTokens: number };
+}
+
 export type SearchResult =
 	| { kind: "structural"; result: StructuralQueryResult; intent: QueryIntent; timings: PipelineTimings }
 	| { kind: "hybrid"; result: HybridSearchResult; intent: QueryIntent; timings: PipelineTimings }
 	| { kind: "social"; result: SocialSearchResult; intent: QueryIntent; timings: PipelineTimings }
+	| { kind: "property"; result: PropertySearchResult; intent: QueryIntent; timings: PipelineTimings }
 	| { kind: "path"; result: PathQueryResult; intent: QueryIntent; timings: PipelineTimings };
 
 // ─────────────────────────────────────────────────────────────────────────────

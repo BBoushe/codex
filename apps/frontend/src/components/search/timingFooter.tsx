@@ -14,6 +14,8 @@ function formatIntent(intent: QueryIntent): string {
 			return `social → "${intent.extractedName || "…"}"`;
 		case "hybrid":
 			return `hybrid/${intent.subKind} K=${intent.topK}${intent.wasFallback ? " (fallback)" : ""}`;
+		case "property":
+			return `property → ${intent.label}.${intent.property} (${intent.order}, limit ${intent.limit})`;
 	}
 }
 

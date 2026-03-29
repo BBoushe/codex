@@ -8,6 +8,7 @@ import { useSearchStore } from "@/stores/searchStore";
 import { StructuralResults } from "./structuralResults";
 import { HybridResults } from "./hybridResults";
 import { SocialResults } from "./socialResults";
+import { PropertyResults } from "./propertyResults";
 import { PathResults } from "./pathResults";
 import { TimingFooter } from "./timingFooter";
 
@@ -54,6 +55,7 @@ export function SearchResults() {
 				)}
 				{result.kind === "hybrid" && <HybridResults result={result.result} />}
 				{result.kind === "social" && <SocialResults result={result.result} />}
+				{result.kind === "property" && <PropertyResults result={result.result} />}
 				{result.kind === "path" && <PathResults result={result.result} />}
 			</div>
 			<TimingFooter timings={result.timings} intent={result.intent} />

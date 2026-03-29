@@ -46,6 +46,8 @@ function extractNodeIds(result: SearchResult): string[] {
 			return result.result.path?.map((p) => p.nodeId) ?? [];
 		case "social":
 			return [];
+		case "property":
+			return result.result.entities?.map((e) => e.nodeId).filter(Boolean) ?? [];
 	}
 }
 
