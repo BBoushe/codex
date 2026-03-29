@@ -14,7 +14,7 @@
  *   packages/rag → packages/graph-client → packages/rag ✗
  */
 
-import type { Driver } from "neo4j-driver";
+import neo4j, { type Driver } from "neo4j-driver";
 import { GRAPH_SCHEMA } from "./schema.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -236,13 +236,17 @@ function buildCypherFromSpec(spec: StructuralQuerySpec): {
 		const p = `p${paramIdx}`;
 		paramIdx++;
 		params[p] = spec.from.name;
-		whereClauses.push(`(fromNode.name = $${p} OR fromNode.qualifiedName = $${p})`);
+		whereClauses.push(
+			`(fromNode.name = $${p} OR fromNode.qualifiedName = $${p})`,
+		);
 	}
 	if (spec.from.filePath) {
 		const p = `p${paramIdx}`;
 		paramIdx++;
 		params[p] = spec.from.filePath;
-		whereClauses.push(`(fromNode.filePath CONTAINS $${p} OR fromNode.filePath = $${p})`);
+		whereClauses.push(
+			`(fromNode.filePath CONTAINS $${p} OR fromNode.filePath = $${p})`,
+		);
 	}
 	if (spec.to.name) {
 		const p = `p${paramIdx}`;
@@ -253,7 +257,9 @@ function buildCypherFromSpec(spec: StructuralQuerySpec): {
 	if (spec.to.filePath) {
 		const p = `p${paramIdx}`;
 		params[p] = spec.to.filePath;
-		whereClauses.push(`(toNode.filePath CONTAINS $${p} OR toNode.filePath = $${p})`);
+		whereClauses.push(
+			`(toNode.filePath CONTAINS $${p} OR toNode.filePath = $${p})`,
+		);
 	}
 
 	const whereStr =
@@ -272,8 +278,7 @@ function buildCypherFromSpec(spec: StructuralQuerySpec): {
 	const matchPattern = `MATCH (fromNode${fromLabel})-[:${spec.edge}]->(toNode${toLabel})`;
 
 	// The "result" is the unknown side — the one WITHOUT the user's filter.
-	const resultVar =
-		spec.direction === "outgoing" ? "toNode" : "fromNode";
+	const resultVar = spec.direction === "outgoing" ? "toNode" : "fromNode";
 
 	const cypher = `
 		${matchPattern}
@@ -876,9 +881,9 @@ export async function fetchSubgraph(
 		}
 
 		// Collect nodeIds for edge query
-		const nodeIds = nodesResult.records.map(
-			(r) => r.get("nodeId") as string,
-		).filter(Boolean);
+		const nodeIds = nodesResult.records
+			.map((r) => r.get("nodeId") as string)
+			.filter(Boolean);
 
 		// Query 2: edges among the collected nodes
 		const edgesResult = await session.run(
@@ -906,7 +911,9 @@ export async function fetchSubgraph(
 				name: (r.get("name") as string | null) ?? "",
 				label,
 				filePath,
-				directory: filePath.includes("/") ? filePath.split("/").slice(0, -1).join("/") : "",
+				directory: filePath.includes("/")
+					? filePath.split("/").slice(0, -1).join("/")
+					: "",
 				module: filePath.split("/")[0] ?? "",
 				language: r.get("language") as string | null,
 				linesOfCode: toNumber(r.get("linesOfCode")),
@@ -939,7 +946,78 @@ function toNumber(value: unknown): number {
 function toNumberFloat(value: unknown): number {
 	if (typeof value === "number") return value;
 	if (value && typeof value === "object") {
-		if ("toNumber" in value) return (value as { toNumber: () => number }).toNumber();
+		if ("toNumber" in value)
+			return (value as { toNumber: () => number }).toNumber();
 	}
 	return 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property ranking queries
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PropertyQueryResult {
+	entities: Array<{
+		nodeId: string;
+		name: string;
+		filePath: string;
+		label: string;
+		value: number;
+	}>;
+}
+
+/** Allowed property names per label — validated against GRAPH_SCHEMA. */
+function isValidPropertyQuery(label: string, property: string): boolean {
+	const node = GRAPH_SCHEMA.nodes.find((n) => n.label === label);
+	return !!node?.sortableProperties?.some((p) => p.name === property);
+}
+
+/**
+ * Executes a property ranking query: ORDER BY + LIMIT on a numeric node property.
+ *
+ * Both `label` and `property` are validated against the graph schema before
+ * building Cypher — no user input is interpolated without validation.
+ */
+export async function executePropertyQuery(
+	driver: Driver,
+	label: string,
+	property: string,
+	order: "asc" | "desc",
+	limit: number,
+): Promise<PropertyQueryResult> {
+	if (!isValidPropertyQuery(label, property)) {
+		return { entities: [] };
+	}
+
+	const safeLimit = Math.max(
+		1,
+		Math.min(Number.isFinite(limit) ? Math.floor(limit) : 1, 20),
+	);
+
+	const direction = order === "asc" ? "ASC" : "DESC";
+	// label and property are validated against GRAPH_SCHEMA — safe to interpolate.
+	const cypher = `
+		MATCH (n:\`${label}\`)
+		WHERE n.\`${property}\` IS NOT NULL
+		RETURN n.nodeId AS nodeId, n.name AS name, n.filePath AS filePath,
+		       labels(n)[0] AS label, n.\`${property}\` AS value
+		ORDER BY value ${direction}
+		LIMIT $limit
+	`;
+
+	const session = driver.session({ database: "neo4j" });
+	try {
+		const result = await session.run(cypher, { limit: neo4j.int(safeLimit) });
+		return {
+			entities: result.records.map((r) => ({
+				nodeId: r.get("nodeId") as string,
+				name: r.get("name") as string,
+				filePath: r.get("filePath") as string,
+				label: r.get("label") as string,
+				value: toNumberFloat(r.get("value")),
+			})),
+		};
+	} finally {
+		await session.close();
+	}
 }

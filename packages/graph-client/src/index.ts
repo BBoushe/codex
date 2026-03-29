@@ -16,11 +16,13 @@ export {
 	expandContext,
 	structuralQuery,
 	executeStructuralSpec,
+	executePropertyQuery,
 	findShortestPath,
 	resolveEntityByName,
 	fetchSubgraph,
 	isNodeId,
 	type ExpandedContext,
+	type PropertyQueryResult,
 	type RelatedEntity,
 	type ResolvedEntity,
 	type DeveloperExpertise,
@@ -34,4 +36,4 @@ export {
 	type SubgraphEdge,
 	type SubgraphResponse,
 } from "./retriever";
-export { GRAPH_SCHEMA, getSchemaPrompt, type GraphSchema } from "./schema";
+export { GRAPH_SCHEMA, getSchemaPrompt, type GraphSchema, type SortableProperty } from "./schema";

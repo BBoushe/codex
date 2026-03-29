@@ -14,11 +14,21 @@
 // Schema types
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Numeric property available for ranking/aggregation queries. */
+export interface SortableProperty {
+	name: string;
+	description: string;
+	/** Display unit (e.g. "lines", "commits", "changes/mo"). */
+	unit: string;
+}
+
 export interface NodeSchema {
 	label: string;
 	description: string;
 	/** Key properties useful for matching/filtering. */
 	matchProperties: string[];
+	/** Numeric properties available for ORDER BY / ranking queries. */
+	sortableProperties?: SortableProperty[];
 }
 
 export interface EdgeSchema {
@@ -45,6 +55,11 @@ export const GRAPH_SCHEMA: GraphSchema = {
 			label: "File",
 			description: "Source code file",
 			matchProperties: ["filePath", "language", "extension"],
+			sortableProperties: [
+				{ name: "loc", description: "lines of code", unit: "lines" },
+				{ name: "totalCommits", description: "total git commits", unit: "commits" },
+				{ name: "churnRate", description: "code churn rate per month", unit: "changes/mo" },
+			],
 		},
 		{
 			label: "Directory",
@@ -55,16 +70,25 @@ export const GRAPH_SCHEMA: GraphSchema = {
 			label: "Function",
 			description: "Function or method definition",
 			matchProperties: ["name", "qualifiedName", "filePath", "isExported"],
+			sortableProperties: [
+				{ name: "loc", description: "lines of code", unit: "lines" },
+			],
 		},
 		{
 			label: "Class",
 			description: "Class definition (OOP)",
 			matchProperties: ["name", "qualifiedName", "filePath", "isExported", "parentClass"],
+			sortableProperties: [
+				{ name: "loc", description: "lines of code", unit: "lines" },
+			],
 		},
 		{
 			label: "Component",
 			description: "React component (arrow, function, memo, forwardRef)",
 			matchProperties: ["name", "qualifiedName", "filePath", "isExported", "componentKind"],
+			sortableProperties: [
+				{ name: "loc", description: "lines of code", unit: "lines" },
+			],
 		},
 		{
 			label: "Hook",
@@ -232,9 +256,16 @@ export const GRAPH_SCHEMA: GraphSchema = {
  *   Edges: (Function)-[CALLS]->(Function), (Component)-[RENDERS]->(Component), ...
  */
 export function getSchemaPrompt(): string {
-	const nodeLines = GRAPH_SCHEMA.nodes.map(
-		(n) => `  ${n.label}: ${n.description} [match by: ${n.matchProperties.join(", ")}]`,
-	);
+	const nodeLines = GRAPH_SCHEMA.nodes.map((n) => {
+		let line = `  ${n.label}: ${n.description} [match by: ${n.matchProperties.join(", ")}]`;
+		if (n.sortableProperties?.length) {
+			const sortDesc = n.sortableProperties
+				.map((p) => `${p.name} (${p.description})`)
+				.join(", ");
+			line += ` [sort by: ${sortDesc}]`;
+		}
+		return line;
+	});
 
 	const edgeLines = GRAPH_SCHEMA.edges.map((e) => {
 		const from = e.fromLabels.join("|");
