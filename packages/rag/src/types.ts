@@ -83,6 +83,18 @@ export type QueryIntent =
 			subKind: HybridSubKind;
 			topK: number;
 			wasFallback: boolean;
+	  }
+	| {
+			kind: "property";
+			/** Node label to query (e.g. "File", "Function"). */
+			label: string;
+			/** Sortable property name (e.g. "loc", "totalCommits", "churnRate"). */
+			property: string;
+			/** Sort direction. */
+			order: "asc" | "desc";
+			/** Number of results (LLM-inferred from query, capped at 20). */
+			limit: number;
+			wasFallback: false;
 	  };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -160,6 +172,28 @@ export interface SocialSearchResult {
 	usage: { inputTokens: number; outputTokens: number };
 }
 
+/** Result from a property ranking query (ORDER BY + LIMIT). */
+export interface PropertySearchResult {
+	/** The query as received. */
+	query: string;
+	/** Which property was sorted. */
+	property: string;
+	/** Display unit (e.g. "lines", "commits", "changes/mo"). */
+	unit: string;
+	/** Sorted entities with their property values. */
+	entities: Array<{
+		nodeId: string;
+		name: string;
+		filePath: string;
+		label: string;
+		value: number;
+	}>;
+	/** LLM-synthesized prose answer. */
+	answer: string;
+	model: string;
+	usage: { inputTokens: number; outputTokens: number };
+}
+
 /** Multi-hop path result (Week 8). */
 export type PathSearchResult = import("@codex/graph-client").PathQueryResult;
 
@@ -168,4 +202,5 @@ export type SearchResult =
 	| { kind: "structural"; result: StructuralSearchResult; intent: QueryIntent; timings: PipelineTimings }
 	| { kind: "hybrid"; result: HybridSearchResult; intent: QueryIntent; timings: PipelineTimings }
 	| { kind: "social"; result: SocialSearchResult; intent: QueryIntent; timings: PipelineTimings }
-	| { kind: "path"; result: PathSearchResult; intent: QueryIntent; timings: PipelineTimings }; // Week 8
+	| { kind: "property"; result: PropertySearchResult; intent: QueryIntent; timings: PipelineTimings }
+	| { kind: "path"; result: PathSearchResult; intent: QueryIntent; timings: PipelineTimings };

@@ -22,7 +22,7 @@ import {
 	getCollectionInfo,
 	searchEntities,
 } from "@codex/vector-client";
-import { expandContext, executeStructuralSpec } from "@codex/graph-client";
+import { expandContext, executeStructuralSpec, executePropertyQuery, GRAPH_SCHEMA } from "@codex/graph-client";
 import { classifyIntent } from "./intentClassifier.js";
 import { assembleContext } from "./contextAssembler.js";
 import { synthesize } from "./synthesizer.js";
@@ -121,6 +121,62 @@ export async function runSearch(
 		timings.graphExpansionMs = Date.now() - neoStart;
 		timings.totalMs = Date.now() - totalStart;
 		return { kind: "social", result, intent, timings };
+	}
+
+	if (intent.kind === "property") {
+		const neoStart = Date.now();
+		const queryResult = await executePropertyQuery(
+			options.driver,
+			intent.label,
+			intent.property,
+			intent.order,
+			intent.limit,
+		);
+		timings.graphExpansionMs = Date.now() - neoStart;
+
+		// Resolve unit from schema
+		const node = GRAPH_SCHEMA.nodes.find((n) => n.label === intent.label);
+		const propSchema = node?.sortableProperties?.find((p) => p.name === intent.property);
+		const unit = propSchema?.unit ?? "";
+
+		// Build context — compact/standard get table only, full gets top entity expanded
+		const contextLines = queryResult.entities.map((e, i) =>
+			`${i + 1}. ${e.name} (${e.filePath}) [${e.label}]: ${intent.property} = ${e.value} ${unit}`,
+		);
+		let contextText = `Results for "${query}" — ${intent.label} sorted by ${intent.property} (${intent.order}):\n${contextLines.join("\n")}`;
+
+		if (budget === "full" && queryResult.entities[0]) {
+			const expanded = await expandContext(options.driver, queryResult.entities[0].nodeId);
+			if (expanded) {
+				const assembled = assembleContext(expanded, { budget: "compact" });
+				contextText += `\n\n--- Top result details ---\n${assembled.text}`;
+			}
+		}
+
+		const synthStart = Date.now();
+		const synthesis = await synthesize(options.llmProvider, query, {
+			text: contextText,
+			referencedNodeIds: queryResult.entities.map((e) => e.nodeId),
+			charCount: contextText.length,
+			wasTruncated: false,
+		});
+		timings.synthesisMs = Date.now() - synthStart;
+		timings.totalMs = Date.now() - totalStart;
+
+		return {
+			kind: "property",
+			result: {
+				query,
+				property: intent.property,
+				unit,
+				entities: queryResult.entities,
+				answer: synthesis.answer,
+				model: synthesis.model,
+				usage: synthesis.usage,
+			},
+			intent,
+			timings,
+		};
 	}
 
 	// ── 3. Hybrid pipeline ───────────────────────────────────────────────

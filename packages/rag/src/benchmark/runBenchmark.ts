@@ -119,6 +119,7 @@ function intentSummary(intent: QueryIntent): string {
 	if (intent.kind === "structural")
 		return `structural/${intent.spec.edge}/${intent.relationship}`;
 	if (intent.kind === "social") return `social/${intent.extractedName}`;
+	if (intent.kind === "property") return `property/${intent.label}.${intent.property}/${intent.order}`;
 	return `hybrid/${intent.subKind}/K=${intent.topK}`;
 }
 

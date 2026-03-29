@@ -1,9 +1,10 @@
 /**
  * @fileoverview LLM-based intent classifier for the hybrid RAG pipeline.
  *
- * Classifies a natural language query into one of three intents:
+ * Classifies a natural language query into one of four intents:
  *   - structural: Direct graph traversal → outputs a StructuralQuerySpec
  *   - social:     Developer/expertise query
+ *   - property:   Ranking/aggregation by numeric metric → deterministic Cypher
  *   - hybrid:     Semantic/architectural query needing vector search + LLM synthesis
  *
  * The graph schema is injected into the prompt automatically. When new node
@@ -15,7 +16,7 @@
  */
 
 import type { LLMProvider } from "@codex/shared";
-import { getSchemaPrompt } from "@codex/graph-client";
+import { getSchemaPrompt, GRAPH_SCHEMA } from "@codex/graph-client";
 import type { StructuralQuerySpec, NodeFilter } from "@codex/graph-client";
 import type { QueryIntent, HybridSubKind } from "./types.js";
 
@@ -89,16 +90,30 @@ There are three routing options:
    - "Who calls fetchPosts?" → structural (asking which code calls it)
    - "What is the smallest file?" → hybrid (asking about code properties)
    - "Which file has the most functions?" → hybrid (asking about code structure)
-   - "What is the largest component?" → hybrid (asking about code size)
-   - "Which files change the most?" → hybrid (asking about code metrics)
-   - "What are the hotspots?" → hybrid (asking about code churn metrics)
+   - "What is the largest component?" → property (ranking by code size)
+   - "Which files change the most?" → property (ranking by churn metric)
+   - "What are the hotspots?" → property (ranking by churn metric)
    Output: { "kind": "social", "extractedName": "<developer name or file/module name if mentioned, otherwise empty string>" }
 
-3. **hybrid** — EVERYTHING ELSE. This is the default.
-   Any question about code behavior, code properties (size, complexity, LOC), code metrics (churn, commit count), code structure, concepts, or anything that is NOT about a named graph relationship (structural) and NOT about a human person (social).
+3. **property** — The question asks to RANK or FIND EXTREMES of code entities by a numeric metric.
+   Signal words: "smallest", "largest", "biggest", "most", "fewest", "least", "top", "bottom", "how many lines", "highest churn".
+   The schema above lists available sortable properties per node type (see "sort by" fields).
+   Examples:
+   - "What is the smallest file?" → property (File, loc, asc, 1)
+   - "Which functions have the most lines?" → property (Function, loc, desc, 5)
+   - "Top 10 files by churn" → property (File, churnRate, desc, 10)
+   - "Which files have the most commits?" → property (File, totalCommits, desc, 5)
+   - "What are the hotspots?" → property (File, churnRate, desc, 5)
+   NOT property:
+   - "What does the smallest function do?" → hybrid (asks about behavior, not just ranking)
+   - "Who works on the most-churned files?" → social (asks about people)
+   Output: { "kind": "property", "label": "<node label>", "property": "<sortable property name>", "order": "asc"|"desc", "limit": <number, infer from query: "smallest" → 1, "top 10" → 10, default 5> }
+
+4. **hybrid** — EVERYTHING ELSE. This is the default.
+   Any question about code behavior, concepts, or anything that is NOT about a named graph relationship (structural), NOT about a human person (social), and NOT about ranking by a numeric metric (property).
    Sub-classify by scope:
    - "direct_lookup": mentions a specific named entity and asks what it does ("What does fetchPosts do?") → topK=1
-   - "semantic": describes a behavior, property, or concept ("What handles authentication?", "What is the smallest file?", "What function fetches posts?") → topK=3
+   - "semantic": describes a behavior or concept ("What handles authentication?", "What function fetches posts?") → topK=3
    - "architectural": asks about multi-module interactions or data flow ("How does data flow from API to UI?") → topK=5
    Output: { "kind": "hybrid", "subKind": "<direct_lookup|semantic|architectural>", "topK": <1|3|5> }
 
@@ -169,6 +184,26 @@ function parseClassification(raw: string): QueryIntent {
 		return {
 			kind: "social",
 			extractedName: (obj["extractedName"] as string | undefined) ?? "",
+			wasFallback: false,
+		};
+	}
+
+	if (obj["kind"] === "property") {
+		const label = obj["label"] as string | undefined;
+		const property = obj["property"] as string | undefined;
+		if (!label || !property) return semanticFallback();
+		// Validate label and property against the graph schema
+		const node = GRAPH_SCHEMA.nodes.find((n) => n.label === label);
+		const validProp = node?.sortableProperties?.some((p) => p.name === property);
+		if (!node || !validProp) return semanticFallback();
+		const order = obj["order"] === "asc" ? "asc" as const : "desc" as const;
+		const rawLimit = typeof obj["limit"] === "number" ? obj["limit"] : 5;
+		return {
+			kind: "property",
+			label,
+			property,
+			order,
+			limit: Math.max(1, Math.min(rawLimit, 20)),
 			wasFallback: false,
 		};
 	}
