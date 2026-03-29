@@ -42,11 +42,7 @@ interface HybridRequestBody {
 export function hybridRoutes(deps: HybridSearchDeps) {
 	return new Elysia({ prefix: "/search" }).post(
 		"/hybrid",
-		async ({
-			body,
-		}: {
-			body: HybridRequestBody;
-		}): Promise<SearchResult> => {
+		async ({ body }: { body: HybridRequestBody }): Promise<SearchResult> => {
 			const llmProvider =
 				body.model && deps.createLlmProvider
 					? deps.createLlmProvider(body.model)
@@ -64,13 +60,31 @@ export function hybridRoutes(deps: HybridSearchDeps) {
 		},
 		{
 			body: t.Object({
-				query: t.String({ minLength: 1 }),
+				query: t.String({ minLength: 8 }),
 				topK: t.Optional(t.Number({ minimum: 1, maximum: 10 })),
 				budget: t.Optional(
-					t.Union([t.Literal("compact"), t.Literal("standard"), t.Literal("full")]),
+					t.Union([
+						t.Literal("compact"),
+						t.Literal("standard"),
+						t.Literal("full"),
+					]),
 				),
 				model: t.Optional(t.String()),
 			}),
+			error: ({ code, error, set }) => {
+				if (code === "VALIDATION") {
+					console.error("Validation error in hybrid search route:", error);
+					set.status = 400;
+					return { error: "Invalid request body." };
+				}
+
+				console.error("Hybrid search failed:", error);
+				set.status = 500;
+				return {
+					error:
+						"Hybrid search failed. Check backend logs and verify Neo4j, ChromaDB, and LLM configuration.",
+				};
+			},
 		},
 	);
 }
