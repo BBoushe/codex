@@ -59,6 +59,8 @@ export function formatContextString(record: RawEntityRecord): string | null {
 			return formatComponent(record);
 		case "Hook":
 			return formatHook(record);
+		case "File":
+			return formatFile(record);
 		default:
 			return null;
 	}
@@ -132,4 +134,23 @@ function formatHook(r: RawEntityRecord): string | null {
 		return `${header}\n\n${r.sourceCode}`;
 	}
 	return header;
+}
+
+/**
+ * Formats a File node as metadata-only context (no source code).
+ * Enables hybrid queries to find files by properties like size and churn.
+ */
+function formatFile(r: RawEntityRecord): string | null {
+	if (!r.filePath) return null;
+
+	return buildHeader([
+		line("file", r.filePath),
+		line("language", r.language),
+		line("lines of code", r.loc),
+		line("extension", r.extension),
+		line("total commits", r.totalCommits),
+		line("churn rate per month", r.churnRate),
+		line("lines added", r.totalAdded),
+		line("lines deleted", r.totalDeleted),
+	]);
 }

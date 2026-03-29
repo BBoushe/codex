@@ -71,6 +71,12 @@ export interface PipelineOptions {
 	 * already fetched entities for UI reporting (e.g. `codex analyze`).
 	 */
 	prefetchedEntities?: EmbeddableEntity[];
+	/**
+	 * Embed File-level metadata documents alongside code entities.
+	 * Improves hybrid recall for file-related questions (size, churn, language).
+	 * Default: true. Set to false via `--no-enrich` or `CODEX_ENRICH_FILES=false`.
+	 */
+	enrichFiles?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,6 +148,13 @@ export async function fetchEmbeddableNodes(
 				returnBindings: record.get("returnBindings"),
 				dependencies: record.get("dependencies"),
 				arguments: record.get("arguments"),
+				// File-specific fields (null for code entities)
+				loc: null,
+				extension: null,
+				totalCommits: null,
+				churnRate: null,
+				totalAdded: null,
+				totalDeleted: null,
 			};
 
 			const contextString = formatContextString(raw);
@@ -167,6 +180,93 @@ export async function fetchEmbeddableNodes(
 	}
 }
 
+/**
+ * Fetches File nodes as metadata-only embeddable entities.
+ * Used for context enrichment — enables hybrid queries to find files by
+ * properties like size, language, and churn.
+ */
+export async function fetchFileNodes(driver: Driver): Promise<EmbeddableEntity[]> {
+	const session = driver.session({ database: "neo4j" });
+	try {
+		const result = await session.run(`
+			MATCH (f:File)
+			RETURN f.nodeId      AS nodeId,
+			       f.name        AS name,
+			       f.qualifiedName AS qualifiedName,
+			       f.filePath    AS filePath,
+			       'File'        AS label,
+			       f.language    AS language,
+			       f.loc         AS loc,
+			       f.extension   AS extension,
+			       f.totalCommits AS totalCommits,
+			       f.churnRate   AS churnRate,
+			       f.totalAdded  AS totalAdded,
+			       f.totalDeleted AS totalDeleted
+		`);
+
+		const entities: EmbeddableEntity[] = [];
+		for (const record of result.records) {
+			const raw: RawEntityRecord = {
+				nodeId: record.get("nodeId"),
+				name: record.get("name"),
+				qualifiedName: record.get("qualifiedName"),
+				filePath: record.get("filePath"),
+				label: "File",
+				language: record.get("language") ?? "Unknown",
+				startLine: 0,
+				endLine: 0,
+				isExported: false,
+				sourceCode: null,
+				parameters: null,
+				returnType: null,
+				methods: null,
+				parentClass: null,
+				componentKind: null,
+				props: null,
+				renderedComponents: null,
+				hookType: null,
+				returnBindings: null,
+				dependencies: null,
+				arguments: null,
+				loc: toNumber(record.get("loc")) || null,
+				extension: record.get("extension") as string | null,
+				totalCommits: toNumber(record.get("totalCommits")) || null,
+				churnRate: toNumberFloat(record.get("churnRate")),
+				totalAdded: toNumber(record.get("totalAdded")) || null,
+				totalDeleted: toNumber(record.get("totalDeleted")) || null,
+			};
+
+			const contextString = formatContextString(raw);
+			if (!contextString) continue;
+
+			entities.push({
+				nodeId: raw.nodeId,
+				name: raw.name,
+				qualifiedName: raw.qualifiedName,
+				filePath: raw.filePath,
+				label: "File",
+				language: raw.language,
+				startLine: 0,
+				endLine: 0,
+				isExported: false,
+				contextString,
+			});
+		}
+		return entities;
+	} finally {
+		await session.close();
+	}
+}
+
+/** Safely converts Neo4j Float to JS number (for churnRate). */
+function toNumberFloat(value: unknown): number {
+	if (typeof value === "number") return value;
+	if (value && typeof value === "object" && "toNumber" in value) {
+		return (value as { toNumber: () => number }).toNumber();
+	}
+	return 0;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main pipeline
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,7 +286,15 @@ export async function runEmbeddingPipeline(
 	let totalEmbedded = 0;
 
 	// 1. Fetch embeddable entities from Neo4j (or use pre-fetched)
-	const allEntities = opts.prefetchedEntities ?? await fetchEmbeddableNodes(opts.driver);
+	const codeEntities = opts.prefetchedEntities ?? await fetchEmbeddableNodes(opts.driver);
+
+	// 1b. Optionally enrich with File metadata documents
+	const enrichFiles = opts.enrichFiles ?? (process.env["CODEX_ENRICH_FILES"] !== "false");
+	let fileEntities: EmbeddableEntity[] = [];
+	if (enrichFiles) {
+		fileEntities = await fetchFileNodes(opts.driver);
+	}
+	const allEntities = [...codeEntities, ...fileEntities];
 
 	// Apply checkpointing: skip entities already indexed in ChromaDB.
 	// Used by `codex analyze` on re-runs to avoid re-embedding entities that
@@ -206,6 +314,7 @@ export async function runEmbeddingPipeline(
 			estimatedCost: 0,
 			failures: [],
 			cachedCount: allEntities.length,
+			fileCount: fileEntities.length,
 		};
 	}
 
@@ -274,6 +383,7 @@ export async function runEmbeddingPipeline(
 		estimatedCost,
 		failures: allFailures,
 		cachedCount: opts.skipIds?.size ?? 0,
+		fileCount: fileEntities.length,
 	};
 }
 

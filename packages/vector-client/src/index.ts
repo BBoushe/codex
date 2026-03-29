@@ -25,6 +25,7 @@ export { withRetry, type RetryOptions } from "./retry.js";
 // Pipeline orchestrator
 export {
 	fetchEmbeddableNodes,
+	fetchFileNodes,
 	runEmbeddingPipeline,
 	type PipelineOptions,
 } from "./pipeline.js";

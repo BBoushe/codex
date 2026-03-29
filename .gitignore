@@ -10,6 +10,9 @@ node_modules/
 # Build output
 dist/
 
+# Script output
+scripts/test-results/
+
 # dependencies (bun install)
 node_modules
 

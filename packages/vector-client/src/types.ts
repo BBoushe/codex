@@ -88,6 +88,8 @@ export interface EmbedStats {
 	failures: EmbedFailure[];
 	/** Number of entities skipped due to checkpointing (already in ChromaDB). */
 	cachedCount?: number;
+	/** Number of File metadata documents included (context enrichment). */
+	fileCount?: number;
 }
 
 /** A single entity that failed during embedding or indexing. */
@@ -131,4 +133,11 @@ export interface RawEntityRecord {
 	returnBindings: string[] | null;
 	dependencies: string[] | null;
 	arguments: string[] | null;
+	// File-specific (for context enrichment)
+	loc: number | null;
+	extension: string | null;
+	totalCommits: number | null;
+	churnRate: number | null;
+	totalAdded: number | null;
+	totalDeleted: number | null;
 }
