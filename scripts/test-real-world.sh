@@ -11,8 +11,8 @@
 
 set -euo pipefail
 
-REPO_URL="${1:-https://github.com/pmndrs/zustand.git}"
-REPO_NAME="${2:-zustand}"
+REPO_URL="${1:-https://github.com/delenov/Mabis.Frontend.git}"
+REPO_NAME="${2:-Mabis.Frontend}"
 WORK_DIR="/tmp/codex-test-${REPO_NAME}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -50,7 +50,8 @@ echo ""
 START_TIME=$(date +%s)
 
 # Tee output to log file and terminal
-bun run --cwd "${REPO_ROOT}" cli analyze "${WORK_DIR}" --clean 2>&1 | tee "${LOG_FILE}"
+# Use the CLI entrypoint directly (avoid the --watch root script).
+bun run --cwd "${REPO_ROOT}" apps/cli/src/index.ts analyze "${WORK_DIR}" --clean 2>&1 | tee "${LOG_FILE}"
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
@@ -66,7 +67,7 @@ echo ""
 echo "▶ Running sample query to verify RAG pipeline…"
 echo ""
 
-bun run --cwd "${REPO_ROOT}" cli query "How does the store creation work?" 2>&1 | tee -a "${LOG_FILE}"
+bun run --cwd "${REPO_ROOT}" apps/cli/src/index.ts query "Explain the MBView architecture and its components" 2>&1 | tee -a "${LOG_FILE}"
 
 echo ""
 echo "▶ Done. Results saved to ${LOG_FILE}"
