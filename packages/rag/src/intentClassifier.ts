@@ -30,6 +30,36 @@ const TOP_K_BY_SUB_KIND: Record<HybridSubKind, number> = {
 	architectural: 5,
 };
 
+function isArchitecturalChainQuery(query: string): boolean {
+	const q = query.toLowerCase();
+	if (q.includes("rendering chain") || q.includes("call chain")) {
+		return true;
+	}
+
+	const hasFromTo = /\bfrom\b[\s\S]{0,120}\bto\b/.test(q);
+	const hasArchitectureSignal =
+		/\b(chain|flow|path|pipeline|interaction|interact|connect|connected|together)\b/.test(
+			q,
+		) ||
+		q.includes("end-to-end") ||
+		q.includes("end to end");
+
+	return hasFromTo && hasArchitectureSignal;
+}
+
+function applyIntentGuards(query: string, intent: QueryIntent): QueryIntent {
+	if (intent.kind === "structural" && isArchitecturalChainQuery(query)) {
+		return {
+			kind: "hybrid",
+			subKind: "architectural",
+			topK: TOP_K_BY_SUB_KIND.architectural,
+			wasFallback: false,
+		};
+	}
+
+	return intent;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Classification prompt (schema injected at runtime)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,7 +173,7 @@ export async function classifyIntent(
 			{ temperature: 0.15, maxTokens: 512 },
 		);
 
-		return parseClassification(response.content);
+		return applyIntentGuards(query, parseClassification(response.content));
 	} catch {
 		return semanticFallback();
 	}
@@ -194,9 +224,11 @@ function parseClassification(raw: string): QueryIntent {
 		if (!label || !property) return semanticFallback();
 		// Validate label and property against the graph schema
 		const node = GRAPH_SCHEMA.nodes.find((n) => n.label === label);
-		const validProp = node?.sortableProperties?.some((p) => p.name === property);
+		const validProp = node?.sortableProperties?.some(
+			(p) => p.name === property,
+		);
 		if (!node || !validProp) return semanticFallback();
-		const order = obj["order"] === "asc" ? "asc" as const : "desc" as const;
+		const order = obj["order"] === "asc" ? ("asc" as const) : ("desc" as const);
 		const rawLimit = typeof obj["limit"] === "number" ? obj["limit"] : 5;
 		return {
 			kind: "property",

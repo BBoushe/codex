@@ -21,8 +21,14 @@ import {
 	getOrCreateEntityCollection,
 	getCollectionInfo,
 	searchEntities,
+	type VectorSearchResult,
 } from "@codex/vector-client";
-import { expandContext, executeStructuralSpec, executePropertyQuery, GRAPH_SCHEMA } from "@codex/graph-client";
+import {
+	expandContext,
+	executeStructuralSpec,
+	executePropertyQuery,
+	GRAPH_SCHEMA,
+} from "@codex/graph-client";
 import { classifyIntent } from "./intentClassifier.js";
 import { assembleContext } from "./contextAssembler.js";
 import { synthesize } from "./synthesizer.js";
@@ -74,6 +80,94 @@ function emptyTimings(): PipelineTimings {
 	};
 }
 
+// Below from this comment until the one starting with ^ is focused on improving vector search relevance via a lightweight lexical reranking of the top ~20 candidates returned by ChromaDB, based on simple token overlap and label matching heuristics. This is intended to be a stopgap until we implement more robust relevance signals like LLM-based reranking or hybrid search in ChromaDB itself.
+
+// This will work for the current testing phase but when seriously developing this into a serious produc we have to rethink this logic. For the purpose of the thesis it's enough but for something more, it simply isn't
+const RERANK_STOP_WORDS = new Set([
+	"the",
+	"and",
+	"from",
+	"with",
+	"that",
+	"this",
+	"what",
+	"which",
+	"where",
+	"how",
+	"does",
+	"show",
+	"list",
+	"about",
+	"into",
+	"have",
+	"has",
+	"for",
+	"who",
+	"top",
+	"most",
+]);
+
+function tokenizeForRerank(query: string): string[] {
+	return query
+		.toLowerCase()
+		.split(/[^a-z0-9_]+/)
+		.filter((token) => token.length >= 3 && !RERANK_STOP_WORDS.has(token));
+}
+
+function inferPreferredLabels(query: string): Set<string> {
+	const q = query.toLowerCase();
+	const labels = new Set<string>();
+	if (q.includes("function")) labels.add("function");
+	if (q.includes("component")) labels.add("component");
+	if (q.includes("hook")) labels.add("hook");
+	if (q.includes("file")) labels.add("file");
+	if (q.includes("class")) labels.add("class");
+	return labels;
+}
+
+function rerankAnchors(
+	query: string,
+	candidates: VectorSearchResult[],
+	topK: number,
+): VectorSearchResult[] {
+	if (candidates.length <= topK) return candidates;
+
+	const queryTokens = tokenizeForRerank(query);
+	const preferredLabels = inferPreferredLabels(query);
+
+	const scored = candidates.map((anchor, idx) => {
+		const haystack =
+			`${anchor.name} ${anchor.qualifiedName} ${anchor.filePath}`.toLowerCase();
+		const lexicalHits = queryTokens.reduce(
+			(sum, token) => (haystack.includes(token) ? sum + 1 : sum),
+			0,
+		);
+		const lexicalScore =
+			queryTokens.length > 0 ? lexicalHits / queryTokens.length : 0;
+
+		const vectorScore = 1 / (1 + Math.max(anchor.distance, 0));
+		const labelBoost =
+			preferredLabels.size > 0 &&
+			preferredLabels.has(anchor.label.toLowerCase())
+				? 0.12
+				: 0;
+
+		const score = vectorScore * 0.72 + lexicalScore * 0.28 + labelBoost;
+		return { anchor, idx, score };
+	});
+
+	scored.sort((a, b) => {
+		if (b.score !== a.score) return b.score - a.score;
+		if (a.anchor.distance !== b.anchor.distance)
+			return a.anchor.distance - b.anchor.distance;
+		return a.idx - b.idx;
+	});
+
+	return scored.slice(0, topK).map((row) => row.anchor);
+}
+
+// ^ the comment ends here
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Unified entry point
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,8 +188,8 @@ export async function runSearch(
 
 	const budget: ContextBudget =
 		options.budget ??
-		((process.env["RAG_CONTEXT_BUDGET"] as ContextBudget | undefined) ??
-			"standard");
+		(process.env["RAG_CONTEXT_BUDGET"] as ContextBudget | undefined) ??
+		"standard";
 
 	// ── 1. Classify intent ───────────────────────────────────────────────
 	const classifierStart = Date.now();
@@ -117,7 +211,12 @@ export async function runSearch(
 
 	if (intent.kind === "social") {
 		const neoStart = Date.now();
-		const result = await runSocialSearch(query, intent, options.driver, options.llmProvider);
+		const result = await runSocialSearch(
+			query,
+			intent,
+			options.driver,
+			options.llmProvider,
+		);
 		timings.graphExpansionMs = Date.now() - neoStart;
 		timings.totalMs = Date.now() - totalStart;
 		return { kind: "social", result, intent, timings };
@@ -136,17 +235,23 @@ export async function runSearch(
 
 		// Resolve unit from schema
 		const node = GRAPH_SCHEMA.nodes.find((n) => n.label === intent.label);
-		const propSchema = node?.sortableProperties?.find((p) => p.name === intent.property);
+		const propSchema = node?.sortableProperties?.find(
+			(p) => p.name === intent.property,
+		);
 		const unit = propSchema?.unit ?? "";
 
 		// Build context — compact/standard get table only, full gets top entity expanded
-		const contextLines = queryResult.entities.map((e, i) =>
-			`${i + 1}. ${e.name} (${e.filePath}) [${e.label}]: ${intent.property} = ${e.value} ${unit}`,
+		const contextLines = queryResult.entities.map(
+			(e, i) =>
+				`${i + 1}. ${e.name} (${e.filePath}) [${e.label}]: ${intent.property} = ${e.value} ${unit}`,
 		);
 		let contextText = `Results for "${query}" — ${intent.label} sorted by ${intent.property} (${intent.order}):\n${contextLines.join("\n")}`;
 
 		if (budget === "full" && queryResult.entities[0]) {
-			const expanded = await expandContext(options.driver, queryResult.entities[0].nodeId);
+			const expanded = await expandContext(
+				options.driver,
+				queryResult.entities[0].nodeId,
+			);
 			if (expanded) {
 				const assembled = assembleContext(expanded, { budget: "compact" });
 				contextText += `\n\n--- Top result details ---\n${assembled.text}`;
@@ -212,7 +317,9 @@ export async function runHybridSearch(
 	// 2. Pre-flight: check collection has data
 	const collectionInfo = await getCollectionInfo(options.chromaClient);
 	if (collectionInfo.count === 0) {
-		console.warn("[RAG] ChromaDB collection is empty — no embeddings have been indexed.");
+		console.warn(
+			"[RAG] ChromaDB collection is empty — no embeddings have been indexed.",
+		);
 		return {
 			answer:
 				"No code embeddings found in the vector index. Please run `codex embed` first to index the codebase.",
@@ -227,14 +334,20 @@ export async function runHybridSearch(
 	// 3. Vector search
 	const vecStart = Date.now();
 	const collection = await getOrCreateEntityCollection(options.chromaClient);
-	const anchors = await searchEntities(collection, queryVector, topK);
+	const candidateCount = Math.min(Math.max(topK * 4, 12), 48);
+	const candidates = await searchEntities(
+		collection,
+		queryVector,
+		candidateCount,
+	);
+	const anchors = rerankAnchors(query, candidates, topK);
 	t.vectorSearchMs = Date.now() - vecStart;
 
 	if (anchors.length === 0) {
 		// No results despite non-empty collection — likely a dimension mismatch or query issue
 		console.warn(
 			`[RAG] Vector search returned 0 results. queryVector.length=${queryVector.length}, collection.count=${collectionInfo.count}. ` +
-			`This may indicate an embedding dimension mismatch. Re-run 'codex embed' with the same embedding provider used at query time.`,
+				`This may indicate an embedding dimension mismatch. Re-run 'codex embed' with the same embedding provider used at query time.`,
 		);
 		const emptyContext = {
 			text: `(No matching code entities found. The collection has ${collectionInfo.count} embeddings but the query vector (${queryVector.length} dims) returned no matches. This may be a dimension mismatch — try re-running \`codex embed\`.)`,
@@ -339,7 +452,9 @@ async function runSocialSearch(
 		const nameFilter = intent.extractedName.trim();
 
 		// Determine if the extracted name looks like a file/path reference or a person
-		const looksLikeFile = nameFilter !== "" && (nameFilter.includes(".") || nameFilter.includes("/"));
+		const looksLikeFile =
+			nameFilter !== "" &&
+			(nameFilter.includes(".") || nameFilter.includes("/"));
 
 		// ── Developer query ──────────────────────────────────────────────────
 		const devResult = await session.run(
@@ -360,10 +475,16 @@ async function runSocialSearch(
 		);
 
 		// Group rows by developer (one row per developer×file)
-		const devMap = new Map<string, {
-			name: string; email: string; isFirstAuthor: boolean;
-			lastContribution: string | null; files: Array<{ path: string; doa: number }>;
-		}>();
+		const devMap = new Map<
+			string,
+			{
+				name: string;
+				email: string;
+				isFirstAuthor: boolean;
+				lastContribution: string | null;
+				files: Array<{ path: string; doa: number }>;
+			}
+		>();
 		for (const record of devResult.records) {
 			const email = record.get("email") as string;
 			if (!email) continue;
@@ -376,25 +497,29 @@ async function runSocialSearch(
 				devMap.set(email, {
 					name: record.get("name") as string,
 					email,
-					isFirstAuthor: (record.get("isFirstAuthor") as boolean | null) ?? false,
+					isFirstAuthor:
+						(record.get("isFirstAuthor") as boolean | null) ?? false,
 					lastContribution: record.get("lastContribution") as string | null,
 					files: [{ path: filePath, doa }],
 				});
 			}
 		}
 
-		const developers = Array.from(devMap.values()).map((dev) => {
-			const sorted = dev.files.sort((a, b) => b.doa - a.doa);
-			const avgDoa = sorted.reduce((s, f) => s + f.doa, 0) / (sorted.length || 1);
-			return {
-				name: dev.name,
-				email: dev.email,
-				doaScore: avgDoa,
-				isFirstAuthor: dev.isFirstAuthor,
-				lastContribution: dev.lastContribution,
-				topFiles: sorted.slice(0, 5).map((f) => f.path),
-			};
-		}).sort((a, b) => b.doaScore - a.doaScore);
+		const developers = Array.from(devMap.values())
+			.map((dev) => {
+				const sorted = dev.files.sort((a, b) => b.doa - a.doa);
+				const avgDoa =
+					sorted.reduce((s, f) => s + f.doa, 0) / (sorted.length || 1);
+				return {
+					name: dev.name,
+					email: dev.email,
+					doaScore: avgDoa,
+					isFirstAuthor: dev.isFirstAuthor,
+					lastContribution: dev.lastContribution,
+					topFiles: sorted.slice(0, 5).map((f) => f.path),
+				};
+			})
+			.sort((a, b) => b.doaScore - a.doaScore);
 
 		// ── Churn query ──────────────────────────────────────────────────────
 		// Run for: empty name (hotspot queries), or file-centric names.
@@ -430,12 +555,25 @@ async function runSocialSearch(
 			const synthesis = await llmProvider.generate(
 				[
 					{ role: "system", content: SOCIAL_SYSTEM_PROMPT },
-					{ role: "user", content: `--- QUESTION ---\n${query}\n\nNo developer or file data was found in the graph. The user should run \`codex mine\` first.` },
+					{
+						role: "user",
+						content: `--- QUESTION ---\n${query}\n\nNo developer or file data was found in the graph. The user should run \`codex mine\` first.`,
+					},
 				],
 				{ maxTokens: 256, temperature: 0.2 },
 			);
-			tokenTracker.add({ llmInput: synthesis.usage.inputTokens, llmOutput: synthesis.usage.outputTokens });
-			return { query, developers: [], files: [], answer: synthesis.content, model: synthesis.model, usage: synthesis.usage };
+			tokenTracker.add({
+				llmInput: synthesis.usage.inputTokens,
+				llmOutput: synthesis.usage.outputTokens,
+			});
+			return {
+				query,
+				developers: [],
+				files: [],
+				answer: synthesis.content,
+				model: synthesis.model,
+				usage: synthesis.usage,
+			};
 		}
 
 		// ── Build LLM context ────────────────────────────────────────────────
@@ -444,17 +582,24 @@ async function runSocialSearch(
 		if (developers.length > 0) {
 			const devLines = developers.map((dev) => {
 				const fa = dev.isFirstAuthor ? " (first author)" : "";
-				const last = dev.lastContribution ? `, last contributed ${dev.lastContribution}` : "";
+				const last = dev.lastContribution
+					? `, last contributed ${dev.lastContribution}`
+					: "";
 				return `- ${dev.name} <${dev.email}>${fa}: DOA score ${dev.doaScore.toFixed(3)}${last}, top files: ${dev.topFiles.join(", ")}`;
 			});
-			contextParts.push(`Developer expertise data from git history:\n${devLines.join("\n")}`);
+			contextParts.push(
+				`Developer expertise data from git history:\n${devLines.join("\n")}`,
+			);
 		}
 
 		if (files.length > 0) {
-			const fileLines = files.map((f) =>
-				`- ${f.path}: ${f.totalCommits} commits, +${f.totalAdded}/-${f.totalDeleted} lines, churn rate ${f.churnRate.toFixed(1)}/month`,
+			const fileLines = files.map(
+				(f) =>
+					`- ${f.path}: ${f.totalCommits} commits, +${f.totalAdded}/-${f.totalDeleted} lines, churn rate ${f.churnRate.toFixed(1)}/month`,
 			);
-			contextParts.push(`File churn data from git history:\n${fileLines.join("\n")}`);
+			contextParts.push(
+				`File churn data from git history:\n${fileLines.join("\n")}`,
+			);
 		}
 
 		const context = contextParts.join("\n\n");
@@ -462,13 +607,26 @@ async function runSocialSearch(
 		const synthesis = await llmProvider.generate(
 			[
 				{ role: "system", content: SOCIAL_SYSTEM_PROMPT },
-				{ role: "user", content: `--- DATA ---\n${context}\n\n--- QUESTION ---\n${query}` },
+				{
+					role: "user",
+					content: `--- DATA ---\n${context}\n\n--- QUESTION ---\n${query}`,
+				},
 			],
 			{ maxTokens: 512, temperature: 0.2 },
 		);
-		tokenTracker.add({ llmInput: synthesis.usage.inputTokens, llmOutput: synthesis.usage.outputTokens });
+		tokenTracker.add({
+			llmInput: synthesis.usage.inputTokens,
+			llmOutput: synthesis.usage.outputTokens,
+		});
 
-		return { query, developers, files, answer: synthesis.content, model: synthesis.model, usage: synthesis.usage };
+		return {
+			query,
+			developers,
+			files,
+			answer: synthesis.content,
+			model: synthesis.model,
+			usage: synthesis.usage,
+		};
 	} finally {
 		await session.close();
 	}
