@@ -40,6 +40,53 @@ interface HierarchyEdge {
 	type: string;
 }
 
+interface ChurnFailureBreakdown {
+	missingChurnFiles: number;
+	invalidChurnValues: number;
+	zeroVariance: boolean;
+}
+
+interface ChurnDiagnostics {
+	totalFiles: number;
+	filesWithChurn: number;
+	minChurnRate: number | null;
+	maxChurnRate: number | null;
+	failureBreakdown: ChurnFailureBreakdown;
+}
+
+interface DeveloperOwner {
+	email: string;
+	name: string;
+	doaScore: number;
+}
+
+interface RiskOwnerSummary {
+	email: string;
+	name: string;
+	ownedFiles: number;
+	ownershipShare: number;
+}
+
+interface RiskFailureBreakdown {
+	emptyExpertiseGraph: boolean;
+	staleMiningRun: boolean;
+	inconsistentDeveloperNodes: number;
+	inconsistentExpertiseEdges: number;
+}
+
+interface RiskMetricsResponse {
+	truckFactor: number;
+	criticalDevelopers: RiskOwnerSummary[];
+	ownership: RiskOwnerSummary[];
+	diagnostics: {
+		developerCount: number;
+		fileCount: number;
+		expertiseEdgeCount: number;
+		orphanedFiles: number;
+		failureBreakdown: RiskFailureBreakdown;
+	};
+}
+
 interface FileTreeNode {
 	name: string;
 	path: string;
@@ -157,14 +204,124 @@ export function graphRoutes(deps: GraphDeps) {
 					language: (r.get("language") as string | null) ?? undefined,
 					churnRate: toNumber(r.get("churnRate")),
 					doaScore: toNumber(r.get("doaScore")),
-					entities: (r.get("entities") as Array<Record<string, unknown>>).filter(
-						(e) => e["id"] !== null,
-					),
+					entities: (
+						r.get("entities") as Array<Record<string, unknown>>
+					).filter((e) => e["id"] !== null),
 				}));
 
 				const tree = buildHierarchyTree(fileRows);
+				const churnDiagnostics = buildChurnDiagnostics(fileRows);
 
-				return { tree, edges };
+				return { tree, edges, churnDiagnostics };
+			} finally {
+				await session.close();
+			}
+		})
+		.get("/graph/risk", async () => {
+			const session = deps.driver.session({ database: "neo4j" });
+			try {
+				const overview = await session.run(
+					`OPTIONAL MATCH (d:Developer)
+					 WITH count(d) AS developerCount
+					 OPTIONAL MATCH ()-[exp:HAS_EXPERTISE]->(:File)
+					 WITH developerCount, count(exp) AS expertiseEdgeCount
+					 OPTIONAL MATCH (f:File)
+					 RETURN developerCount, expertiseEdgeCount, count(f) AS fileCount`,
+				);
+
+				const overviewRow = overview.records[0];
+				const developerCount =
+					toNumber(overviewRow?.get("developerCount")) ?? 0;
+				const expertiseEdgeCount =
+					toNumber(overviewRow?.get("expertiseEdgeCount")) ?? 0;
+				const fileCount = toNumber(overviewRow?.get("fileCount")) ?? 0;
+
+				const inconsistency = await session.run(
+					`OPTIONAL MATCH (d:Developer)
+					 WHERE d.email IS NULL OR d.name IS NULL
+					 WITH count(d) AS inconsistentDeveloperNodes
+					 OPTIONAL MATCH ()-[exp:HAS_EXPERTISE]->(:File)
+					 WHERE exp.doaScore IS NULL
+					 RETURN inconsistentDeveloperNodes, count(exp) AS inconsistentExpertiseEdges`,
+				);
+
+				const inconsistencyRow = inconsistency.records[0];
+				const inconsistentDeveloperNodes =
+					toNumber(inconsistencyRow?.get("inconsistentDeveloperNodes")) ?? 0;
+				const inconsistentExpertiseEdges =
+					toNumber(inconsistencyRow?.get("inconsistentExpertiseEdges")) ?? 0;
+
+				const ownersResult = await session.run(
+					`MATCH (d:Developer)-[exp:HAS_EXPERTISE]->(f:File)
+					 WITH f.filePath AS filePath,
+					      collect({
+					        email: d.email,
+					        name: d.name,
+					        doaScore: exp.doaScore
+					      }) AS expertiseRows
+					 RETURN filePath, expertiseRows`,
+				);
+
+				const expertiseByFile = new Map<string, DeveloperOwner[]>();
+				for (const row of ownersResult.records) {
+					const filePath = row.get("filePath") as string;
+					const rawRows = row.get("expertiseRows") as Array<{
+						email: string | null;
+						name: string | null;
+						doaScore: number | null;
+					}>;
+
+					const owners = rawRows
+						.filter((raw) => raw.email && raw.name)
+						.map((raw) => ({
+							email: raw.email as string,
+							name: raw.name as string,
+							doaScore: raw.doaScore ?? 0,
+						}))
+						.sort((a, b) => b.doaScore - a.doaScore);
+
+					if (owners.length > 0) {
+						expertiseByFile.set(filePath, owners);
+					}
+				}
+
+				const truckFactorResult = computeTruckFactorFromOwners(expertiseByFile);
+				const ownership = buildOwnershipSummary(
+					truckFactorResult.ownershipCounts,
+					truckFactorResult.developerNames,
+					expertiseByFile.size,
+				);
+
+				const criticalDevelopers = truckFactorResult.criticalDevelopers
+					.map((email) => {
+						const owner = ownership.find((entry) => entry.email === email);
+						return owner ?? null;
+					})
+					.filter((entry): entry is RiskOwnerSummary => entry !== null);
+
+				const orphanedFiles = Math.max(fileCount - expertiseByFile.size, 0);
+
+				const failureBreakdown: RiskFailureBreakdown = {
+					emptyExpertiseGraph: expertiseEdgeCount === 0,
+					staleMiningRun: developerCount > 0 && expertiseEdgeCount === 0,
+					inconsistentDeveloperNodes,
+					inconsistentExpertiseEdges,
+				};
+
+				const payload: RiskMetricsResponse = {
+					truckFactor: truckFactorResult.truckFactor,
+					criticalDevelopers,
+					ownership,
+					diagnostics: {
+						developerCount,
+						fileCount,
+						expertiseEdgeCount,
+						orphanedFiles,
+						failureBreakdown,
+					},
+				};
+
+				return payload;
 			} finally {
 				await session.close();
 			}
@@ -329,3 +486,160 @@ function toNumber(value: unknown): number | undefined {
 	return undefined;
 }
 
+function buildChurnDiagnostics(rows: FileRow[]): ChurnDiagnostics {
+	let filesWithChurn = 0;
+	let missingChurnFiles = 0;
+	let invalidChurnValues = 0;
+
+	const churnValues: number[] = [];
+
+	for (const row of rows) {
+		if (row.churnRate === undefined) {
+			missingChurnFiles++;
+			continue;
+		}
+		if (!Number.isFinite(row.churnRate)) {
+			invalidChurnValues++;
+			continue;
+		}
+		filesWithChurn++;
+		churnValues.push(row.churnRate);
+	}
+
+	const minChurnRate = churnValues.length > 0 ? Math.min(...churnValues) : null;
+	const maxChurnRate = churnValues.length > 0 ? Math.max(...churnValues) : null;
+
+	return {
+		totalFiles: rows.length,
+		filesWithChurn,
+		minChurnRate,
+		maxChurnRate,
+		failureBreakdown: {
+			missingChurnFiles,
+			invalidChurnValues,
+			zeroVariance:
+				churnValues.length > 1 && minChurnRate !== null && maxChurnRate !== null
+					? minChurnRate === maxChurnRate
+					: false,
+		},
+	};
+}
+
+function computeTruckFactorFromOwners(
+	expertiseByFile: Map<string, DeveloperOwner[]>,
+): {
+	truckFactor: number;
+	criticalDevelopers: string[];
+	ownershipCounts: Map<string, number>;
+	developerNames: Map<string, string>;
+} {
+	if (expertiseByFile.size === 0) {
+		return {
+			truckFactor: 0,
+			criticalDevelopers: [],
+			ownershipCounts: new Map(),
+			developerNames: new Map(),
+		};
+	}
+
+	const fileOwners = new Map<string, DeveloperOwner>();
+	const developerNames = new Map<string, string>();
+
+	for (const [filePath, candidates] of expertiseByFile) {
+		const owner = candidates[0];
+		if (!owner) continue;
+		fileOwners.set(filePath, owner);
+		developerNames.set(owner.email, owner.name);
+		for (const candidate of candidates) {
+			developerNames.set(candidate.email, candidate.name);
+		}
+	}
+
+	const ownershipCounts = new Map<string, number>();
+	for (const owner of fileOwners.values()) {
+		ownershipCounts.set(
+			owner.email,
+			(ownershipCounts.get(owner.email) ?? 0) + 1,
+		);
+	}
+
+	const mutableOwners = new Map(fileOwners);
+	const mutableCounts = new Map(ownershipCounts);
+	const criticalDevelopers: string[] = [];
+
+	const totalFiles = fileOwners.size;
+	const orphanThreshold = Math.ceil(totalFiles * 0.5);
+	let orphanedFiles = 0;
+
+	while (orphanedFiles <= orphanThreshold && mutableCounts.size > 0) {
+		const next = findTopOwner(mutableCounts);
+		if (!next) break;
+
+		criticalDevelopers.push(next.email);
+		mutableCounts.delete(next.email);
+
+		for (const [filePath, owner] of mutableOwners) {
+			if (owner.email !== next.email) continue;
+
+			const candidates =
+				expertiseByFile
+					.get(filePath)
+					?.filter((candidate) => mutableCounts.has(candidate.email))
+					.sort((a, b) => b.doaScore - a.doaScore) ?? [];
+
+			const replacement = candidates[0];
+			if (!replacement) {
+				mutableOwners.delete(filePath);
+				orphanedFiles++;
+				continue;
+			}
+
+			mutableOwners.set(filePath, replacement);
+			mutableCounts.set(
+				replacement.email,
+				(mutableCounts.get(replacement.email) ?? 0) + 1,
+			);
+		}
+
+		if (orphanedFiles > orphanThreshold) break;
+	}
+
+	return {
+		truckFactor: criticalDevelopers.length,
+		criticalDevelopers,
+		ownershipCounts,
+		developerNames,
+	};
+}
+
+function findTopOwner(
+	counts: Map<string, number>,
+): { email: string; ownedFiles: number } | null {
+	let winner: { email: string; ownedFiles: number } | null = null;
+	for (const [email, ownedFiles] of counts) {
+		if (!winner || ownedFiles > winner.ownedFiles) {
+			winner = { email, ownedFiles };
+		}
+	}
+	return winner;
+}
+
+function buildOwnershipSummary(
+	ownershipCounts: Map<string, number>,
+	developerNames: Map<string, string>,
+	totalOwnedFiles: number,
+): RiskOwnerSummary[] {
+	const rows = Array.from(ownershipCounts.entries())
+		.map(([email, ownedFiles]) => ({
+			email,
+			name: developerNames.get(email) ?? email,
+			ownedFiles,
+			ownershipShare:
+				totalOwnedFiles > 0
+					? Math.round((ownedFiles / totalOwnedFiles) * 1000) / 1000
+					: 0,
+		}))
+		.sort((a, b) => b.ownedFiles - a.ownedFiles);
+
+	return rows;
+}
