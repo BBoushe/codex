@@ -103,37 +103,51 @@ export interface EmbedFailure {
 // Raw entity record from Neo4j query (before formatting)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Shape of a single row returned by the `fetchEmbeddableNodes` Cypher query.
- * All fields are nullable because Neo4j returns null for missing properties.
- */
-export interface RawEntityRecord {
+interface RawBaseRecord {
 	nodeId: string;
 	name: string;
 	qualifiedName: string;
 	filePath: string;
-	label: string;
 	language: string;
 	startLine: number;
 	endLine: number;
 	isExported: boolean;
 	sourceCode: string | null;
-	// Function-specific
+}
+
+export interface RawFunctionRecord extends RawBaseRecord {
+	label: "Function";
 	parameters: string[] | null;
 	returnType: string | null;
-	// Class-specific
+}
+
+export interface RawClassRecord extends RawBaseRecord {
+	label: "Class";
 	methods: string[] | null;
 	parentClass: string | null;
-	// Component-specific
+}
+
+export interface RawComponentRecord extends RawBaseRecord {
+	label: "Component";
 	componentKind: string | null;
 	props: string[] | null;
 	renderedComponents: string[] | null;
-	// Hook-specific
+}
+
+export interface RawHookRecord extends RawBaseRecord {
+	label: "Hook";
 	hookType: string | null;
 	returnBindings: string[] | null;
 	dependencies: string[] | null;
 	arguments: string[] | null;
-	// File-specific (for context enrichment)
+}
+
+export interface RawFileRecord extends RawBaseRecord {
+	label: "File";
+	startLine: 0;
+	endLine: 0;
+	isExported: false;
+	sourceCode: null;
 	loc: number | null;
 	extension: string | null;
 	totalCommits: number | null;
@@ -141,3 +155,10 @@ export interface RawEntityRecord {
 	totalAdded: number | null;
 	totalDeleted: number | null;
 }
+
+export type RawEntityRecord =
+	| RawFunctionRecord
+	| RawClassRecord
+	| RawComponentRecord
+	| RawHookRecord
+	| RawFileRecord;

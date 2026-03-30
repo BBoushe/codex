@@ -12,6 +12,11 @@ import { tokenTracker } from "@codex/shared";
 import type {
 	EmbeddableEntity,
 	RawEntityRecord,
+	RawFunctionRecord,
+	RawClassRecord,
+	RawComponentRecord,
+	RawHookRecord,
+	RawFileRecord,
 	EmbedStats,
 	EmbedFailure,
 } from "./types.js";
@@ -126,36 +131,66 @@ export async function fetchEmbeddableNodes(
 		const entities: EmbeddableEntity[] = [];
 
 		for (const record of result.records) {
-			const raw: RawEntityRecord = {
-				nodeId: record.get("nodeId"),
-				name: record.get("name"),
-				qualifiedName: record.get("qualifiedName"),
-				filePath: record.get("filePath"),
-				label: record.get("label"),
-				language: record.get("language") ?? "Unknown",
+			const label = record.get("label") as string;
+			const base = {
+				nodeId: record.get("nodeId") as string,
+				name: record.get("name") as string,
+				qualifiedName: record.get("qualifiedName") as string,
+				filePath: record.get("filePath") as string,
+				language: (record.get("language") as string | null) ?? "Unknown",
 				startLine: toNumber(record.get("startLine")),
 				endLine: toNumber(record.get("endLine")),
-				isExported: record.get("isExported") ?? false,
-				sourceCode: record.get("sourceCode"),
-				parameters: record.get("parameters"),
-				returnType: record.get("returnType"),
-				methods: record.get("methods"),
-				parentClass: record.get("parentClass"),
-				componentKind: record.get("componentKind"),
-				props: record.get("props"),
-				renderedComponents: record.get("renderedComponents") ?? null,
-				hookType: record.get("hookType"),
-				returnBindings: record.get("returnBindings"),
-				dependencies: record.get("dependencies"),
-				arguments: record.get("arguments"),
-				// File-specific fields (null for code entities)
-				loc: null,
-				extension: null,
-				totalCommits: null,
-				churnRate: null,
-				totalAdded: null,
-				totalDeleted: null,
+				isExported: (record.get("isExported") as boolean | null) ?? false,
+				sourceCode: (record.get("sourceCode") as string | null) ?? null,
 			};
+
+			let raw: RawEntityRecord | null = null;
+
+			switch (label) {
+				case "Function":
+					raw = {
+						...base,
+						label: "Function",
+						parameters: (record.get("parameters") as string[] | null) ?? null,
+						returnType: (record.get("returnType") as string | null) ?? null,
+					} satisfies RawFunctionRecord;
+					break;
+				case "Class":
+					raw = {
+						...base,
+						label: "Class",
+						methods: (record.get("methods") as string[] | null) ?? null,
+						parentClass: (record.get("parentClass") as string | null) ?? null,
+					} satisfies RawClassRecord;
+					break;
+				case "Component":
+					raw = {
+						...base,
+						label: "Component",
+						componentKind:
+							(record.get("componentKind") as string | null) ?? null,
+						props: (record.get("props") as string[] | null) ?? null,
+						renderedComponents:
+							(record.get("renderedComponents") as string[] | null) ?? null,
+					} satisfies RawComponentRecord;
+					break;
+				case "Hook":
+					raw = {
+						...base,
+						label: "Hook",
+						hookType: (record.get("hookType") as string | null) ?? null,
+						returnBindings:
+							(record.get("returnBindings") as string[] | null) ?? null,
+						dependencies:
+							(record.get("dependencies") as string[] | null) ?? null,
+						arguments: (record.get("arguments") as string[] | null) ?? null,
+					} satisfies RawHookRecord;
+					break;
+				default:
+					raw = null;
+			}
+
+			if (!raw) continue;
 
 			const contextString = formatContextString(raw);
 			if (!contextString) continue; // Skip entities that can't be formatted
@@ -185,7 +220,9 @@ export async function fetchEmbeddableNodes(
  * Used for context enrichment — enables hybrid queries to find files by
  * properties like size, language, and churn.
  */
-export async function fetchFileNodes(driver: Driver): Promise<EmbeddableEntity[]> {
+export async function fetchFileNodes(
+	driver: Driver,
+): Promise<EmbeddableEntity[]> {
 	const session = driver.session({ database: "neo4j" });
 	try {
 		const result = await session.run(`
@@ -206,7 +243,7 @@ export async function fetchFileNodes(driver: Driver): Promise<EmbeddableEntity[]
 
 		const entities: EmbeddableEntity[] = [];
 		for (const record of result.records) {
-			const raw: RawEntityRecord = {
+			const raw: RawFileRecord = {
 				nodeId: record.get("nodeId"),
 				name: record.get("name"),
 				qualifiedName: record.get("qualifiedName"),
@@ -217,17 +254,18 @@ export async function fetchFileNodes(driver: Driver): Promise<EmbeddableEntity[]
 				endLine: 0,
 				isExported: false,
 				sourceCode: null,
-				parameters: null,
-				returnType: null,
-				methods: null,
-				parentClass: null,
-				componentKind: null,
-				props: null,
-				renderedComponents: null,
-				hookType: null,
-				returnBindings: null,
-				dependencies: null,
-				arguments: null,
+				// For File nodes, these fields are not applicable, so we set them to null.
+				// parameters: null,
+				// returnType: null,
+				// methods: null,
+				// parentClass: null,
+				// componentKind: null,
+				// props: null,
+				// renderedComponents: null,
+				// hookType: null,
+				// returnBindings: null,
+				// dependencies: null,
+				// arguments: null,
 				loc: toNumber(record.get("loc")) || null,
 				extension: record.get("extension") as string | null,
 				totalCommits: toNumber(record.get("totalCommits")) || null,
@@ -286,10 +324,12 @@ export async function runEmbeddingPipeline(
 	let totalEmbedded = 0;
 
 	// 1. Fetch embeddable entities from Neo4j (or use pre-fetched)
-	const codeEntities = opts.prefetchedEntities ?? await fetchEmbeddableNodes(opts.driver);
+	const codeEntities =
+		opts.prefetchedEntities ?? (await fetchEmbeddableNodes(opts.driver));
 
 	// 1b. Optionally enrich with File metadata documents
-	const enrichFiles = opts.enrichFiles ?? (process.env["CODEX_ENRICH_FILES"] !== "false");
+	const enrichFiles =
+		opts.enrichFiles ?? process.env["CODEX_ENRICH_FILES"] !== "false";
 	let fileEntities: EmbeddableEntity[] = [];
 	if (enrichFiles) {
 		fileEntities = await fetchFileNodes(opts.driver);

@@ -10,7 +10,14 @@
  * field passes through unchanged in whatever language it was written in.
  */
 
-import type { RawEntityRecord } from "./types.js";
+import type {
+	RawEntityRecord,
+	RawFunctionRecord,
+	RawClassRecord,
+	RawComponentRecord,
+	RawHookRecord,
+	RawFileRecord,
+} from "./types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -62,7 +69,7 @@ export function formatContextString(record: RawEntityRecord): string | null {
 		case "File":
 			return formatFile(record);
 		default:
-			return null;
+			return assertNever(record);
 	}
 }
 
@@ -70,7 +77,7 @@ export function formatContextString(record: RawEntityRecord): string | null {
 // Per-label formatters
 // ─────────────────────────────────────────────────────────────────────────────
 
-function formatFunction(r: RawEntityRecord): string | null {
+function formatFunction(r: RawFunctionRecord): string | null {
 	if (!r.sourceCode) return null;
 
 	const header = buildHeader([
@@ -85,7 +92,7 @@ function formatFunction(r: RawEntityRecord): string | null {
 	return `${header}\n\n${r.sourceCode}`;
 }
 
-function formatClass(r: RawEntityRecord): string | null {
+function formatClass(r: RawClassRecord): string | null {
 	if (!r.sourceCode) return null;
 
 	const header = buildHeader([
@@ -100,7 +107,7 @@ function formatClass(r: RawEntityRecord): string | null {
 	return `${header}\n\n${r.sourceCode}`;
 }
 
-function formatComponent(r: RawEntityRecord): string | null {
+function formatComponent(r: RawComponentRecord): string | null {
 	if (!r.sourceCode) return null;
 
 	const header = buildHeader([
@@ -116,7 +123,7 @@ function formatComponent(r: RawEntityRecord): string | null {
 	return `${header}\n\n${r.sourceCode}`;
 }
 
-function formatHook(r: RawEntityRecord): string | null {
+function formatHook(r: RawHookRecord): string | null {
 	// Only embed custom hooks — built-in hooks are instances, not definitions
 	if (r.hookType !== "custom") return null;
 
@@ -140,7 +147,7 @@ function formatHook(r: RawEntityRecord): string | null {
  * Formats a File node as metadata-only context (no source code).
  * Enables hybrid queries to find files by properties like size and churn.
  */
-function formatFile(r: RawEntityRecord): string | null {
+function formatFile(r: RawFileRecord): string | null {
 	if (!r.filePath) return null;
 
 	return buildHeader([
@@ -153,4 +160,8 @@ function formatFile(r: RawEntityRecord): string | null {
 		line("lines added", r.totalAdded),
 		line("lines deleted", r.totalDeleted),
 	]);
+}
+
+function assertNever(_record: never): null {
+	return null;
 }
