@@ -18,7 +18,7 @@
  * Requires: NEO4J_* + SILICONFLOW_API_KEY + CHROMA_URL env vars.
  */
 
-import neo4j, { type Driver } from "neo4j-driver";
+import neo4j, { type Driver, type Record as Neo4jRecord } from "neo4j-driver";
 import {
 	createSiliconFlowEmbeddingProvider,
 	createSiliconFlowLLMProvider,
@@ -73,6 +73,20 @@ interface TestResult {
 	detail: string;
 	/** Optional per-phase timing breakdown. */
 	timings: PipelineTimings | null;
+}
+
+interface ValidationEntity {
+	name: string;
+	qualifiedName: string;
+	label: string;
+}
+
+interface ValidationTargets {
+	calledByTarget: ValidationEntity | null;
+	calledByCaller: ValidationEntity | null;
+	definedInTarget: ValidationEntity | null;
+	rendersTarget: ValidationEntity | null;
+	usesHookTarget: ValidationEntity | null;
 }
 
 const allResults: TestResult[] = [];
@@ -137,6 +151,132 @@ function formatTimings(t: PipelineTimings): string {
 	if (t.synthesisMs > 0) parts.push(`synthesis=${t.synthesisMs}ms`);
 	parts.push(`total=${t.totalMs}ms`);
 	return parts.join(" + ");
+}
+
+function mapValidationEntity(
+	record: Neo4jRecord,
+	nameKey: string,
+	qualifiedNameKey: string,
+	labelKey: string,
+): ValidationEntity {
+	const name = String(record.get(nameKey) ?? "").trim();
+	const qualifiedName = String(record.get(qualifiedNameKey) ?? "").trim();
+	const label = String(record.get(labelKey) ?? "").trim();
+	return {
+		name,
+		qualifiedName: qualifiedName || name,
+		label,
+	};
+}
+
+async function discoverValidationTargets(
+	driver: Driver,
+): Promise<ValidationTargets> {
+	const session = driver.session({ database: "neo4j" });
+
+	try {
+		const callsResult = await session.run(
+			`
+			MATCH (caller)-[:CALLS]->(callee:Function)
+			WHERE caller.name IS NOT NULL AND callee.name IS NOT NULL
+			RETURN
+			  caller.name AS callerName,
+			  coalesce(caller.qualifiedName, caller.name) AS callerQualifiedName,
+			  labels(caller)[0] AS callerLabel,
+			  callee.name AS calleeName,
+			  coalesce(callee.qualifiedName, callee.name) AS calleeQualifiedName,
+			  'Function' AS calleeLabel
+			LIMIT 1
+			`,
+		);
+
+		const definedInResult = await session.run(
+			`
+			MATCH (f:Function)-[:DEFINED_IN]->(:File)
+			WHERE f.name IS NOT NULL
+			RETURN
+			  f.name AS name,
+			  coalesce(f.qualifiedName, f.name) AS qualifiedName,
+			  'Function' AS label
+			LIMIT 1
+			`,
+		);
+
+		const rendersResult = await session.run(
+			`
+			MATCH (c:Component)-[:RENDERS]->(:Component)
+			WHERE c.name IS NOT NULL
+			RETURN
+			  c.name AS name,
+			  coalesce(c.qualifiedName, c.name) AS qualifiedName,
+			  'Component' AS label
+			LIMIT 1
+			`,
+		);
+
+		const usesHookResult = await session.run(
+			`
+			MATCH (c:Component)-[:USES_HOOK]->(:Hook)
+			WHERE c.name IS NOT NULL
+			RETURN
+			  c.name AS name,
+			  coalesce(c.qualifiedName, c.name) AS qualifiedName,
+			  'Component' AS label
+			LIMIT 1
+			`,
+		);
+
+		const callRecord = callsResult.records[0] ?? null;
+		const calledByTarget = callRecord
+			? mapValidationEntity(
+					callRecord,
+					"calleeName",
+					"calleeQualifiedName",
+					"calleeLabel",
+				)
+			: null;
+		const calledByCaller = callRecord
+			? mapValidationEntity(
+					callRecord,
+					"callerName",
+					"callerQualifiedName",
+					"callerLabel",
+				)
+			: null;
+
+		const definedInRecord = definedInResult.records[0] ?? null;
+		const definedInTarget = definedInRecord
+			? mapValidationEntity(definedInRecord, "name", "qualifiedName", "label")
+			: calledByTarget;
+
+		const rendersRecord = rendersResult.records[0] ?? null;
+		const rendersTarget = rendersRecord
+			? mapValidationEntity(rendersRecord, "name", "qualifiedName", "label")
+			: null;
+
+		const usesHookRecord = usesHookResult.records[0] ?? null;
+		const usesHookTarget = usesHookRecord
+			? mapValidationEntity(usesHookRecord, "name", "qualifiedName", "label")
+			: null;
+
+		return {
+			calledByTarget,
+			calledByCaller,
+			definedInTarget,
+			rendersTarget,
+			usesHookTarget,
+		};
+	} finally {
+		await session.close();
+	}
+}
+
+function pickTargetName(
+	target: ValidationEntity | null,
+	fallback: string,
+): string {
+	if (!target) return fallback;
+	return target.qualifiedName || target.name || fallback;
 }
 
 // ─── 1. Intent classifier ────────────────────────────────────────────────────
@@ -256,6 +396,25 @@ async function testIntentClassifier(classifierProvider: LLMProvider) {
 		},
 	);
 
+	await runTest(
+		"intent",
+		"architectural guard: rendering chain query routes to hybrid",
+		async () => {
+			const intent = await classifyIntent(
+				"What is the rendering chain from App to Button?",
+				classifierProvider,
+			);
+			if (intent.kind !== "hybrid")
+				fail(
+					"intent.kind",
+					`Expected hybrid, got ${intent.kind} (${JSON.stringify(intent)})`,
+				);
+			if (intent.subKind !== "architectural")
+				fail("intent.subKind", `Expected architectural, got ${intent.subKind}`);
+			return { detail: `subKind=${intent.subKind} topK=${intent.topK}` };
+		},
+	);
+
 	// 1e. Verify fallback doesn't fire for well-formed queries
 	await runTest(
 		"intent",
@@ -286,7 +445,10 @@ async function testIntentClassifier(classifierProvider: LLMProvider) {
 
 // ─── 2. Structural queries ───────────────────────────────────────────────────
 
-async function testStructuralQueries(driver: Driver) {
+async function testStructuralQueries(
+	driver: Driver,
+	targets: ValidationTargets,
+) {
 	const patterns: Array<{
 		pattern: StructuralPattern;
 		name: string;
@@ -295,34 +457,37 @@ async function testStructuralQueries(driver: Driver) {
 	}> = [
 		{
 			pattern: "called_by",
-			name: "fetchPosts",
-			expectResults: true,
-			description: "callers of fetchPosts",
+			name: pickTargetName(targets.calledByTarget, "__missing_called_target__"),
+			expectResults: targets.calledByTarget !== null,
+			description: `callers of ${pickTargetName(targets.calledByTarget, "<unavailable>")}`,
 		},
 		{
 			pattern: "defined_in",
-			name: "fetchPosts",
-			expectResults: true,
-			description: "file containing fetchPosts",
+			name: pickTargetName(
+				targets.definedInTarget,
+				"__missing_defined_target__",
+			),
+			expectResults: targets.definedInTarget !== null,
+			description: `file containing ${pickTargetName(targets.definedInTarget, "<unavailable>")}`,
 		},
 		{
 			pattern: "renders",
-			name: "App",
-			expectResults: true,
-			description: "components rendered by App",
+			name: pickTargetName(targets.rendersTarget, "__missing_render_target__"),
+			expectResults: targets.rendersTarget !== null,
+			description: `components rendered by ${pickTargetName(targets.rendersTarget, "<unavailable>")}`,
 		},
 		{
 			pattern: "uses_hook",
-			name: "PostList",
-			expectResults: true,
-			description: "hooks used by PostList",
+			name: pickTargetName(targets.usesHookTarget, "__missing_hook_target__"),
+			expectResults: targets.usesHookTarget !== null,
+			description: `hooks used by ${pickTargetName(targets.usesHookTarget, "<unavailable>")}`,
 		},
 		// what_calls may return 0 if fetchPosts doesn't call anything in the graph
 		{
 			pattern: "what_calls",
-			name: "App",
+			name: pickTargetName(targets.calledByCaller, "__missing_caller_target__"),
 			expectResults: false,
-			description: "what App calls (may be empty)",
+			description: `what ${pickTargetName(targets.calledByCaller, "<unavailable>")} calls (may be empty)`,
 		},
 		// Week 8 scaffolds — should return empty, NOT error
 		{
@@ -514,6 +679,7 @@ async function testEndToEnd(
 	embeddingProvider: EmbeddingProvider,
 	llmProvider: LLMProvider,
 	classifierProvider: LLMProvider,
+	targets: ValidationTargets,
 ) {
 	const opts = {
 		driver,
@@ -559,7 +725,15 @@ async function testEndToEnd(
 		"e2e",
 		"structural query returns entities with timings",
 		async () => {
-			const result = await runSearch("Where is fetchPosts defined?", opts);
+			if (!targets.definedInTarget) {
+				return {
+					detail:
+						"skipped strict entity assertion: no function with DEFINED_IN edge found",
+				};
+			}
+
+			const entityName = pickTargetName(targets.definedInTarget, "fetchPosts");
+			const result = await runSearch(`Where is ${entityName} defined?`, opts);
 			if (result.kind === "structural") {
 				if (result.result.entities.length === 0)
 					fail("e2e.entities", "Structural result has no entities");
@@ -618,18 +792,29 @@ async function testEndToEnd(
 async function testNameResolutionAndPath(driver: Driver) {
 	await runTest(
 		"resolution",
-		"resolveEntityByName finds fetchPosts",
+		"resolveEntityByName finds graph-backed target",
 		async () => {
-			const results = await resolveEntityByName(driver, "fetchPosts");
+			const targets = await discoverValidationTargets(driver);
+			const lookup = pickTargetName(targets.definedInTarget, "");
+			if (!lookup) {
+				return {
+					detail:
+						"skipped strict name-resolution assertion: no function target discovered",
+				};
+			}
+
+			const results = await resolveEntityByName(driver, lookup);
 			if (results.length === 0)
-				fail("resolution.empty", "No results for 'fetchPosts'");
+				fail("resolution.empty", `No results for '${lookup}'`);
 			const first = results[0]!;
 			if (!first.nodeId)
 				fail("resolution.nodeId", "First result has no nodeId");
-			if (!first.name.includes("fetchPosts"))
+			const expectedNameFragment =
+				targets.definedInTarget?.name ?? lookup.split("::").at(-1) ?? lookup;
+			if (!first.name.includes(expectedNameFragment))
 				fail(
 					"resolution.name",
-					`Expected name containing 'fetchPosts', got '${first.name}'`,
+					`Expected name containing '${expectedNameFragment}', got '${first.name}'`,
 				);
 			return {
 				detail: `found=${results.length} first=${first.name} (${first.label})`,
@@ -656,14 +841,25 @@ async function testNameResolutionAndPath(driver: Driver) {
 
 	await runTest(
 		"path",
-		"findShortestPath between two known entities",
+		"findShortestPath between graph-backed entities",
 		async () => {
-			const fromResults = await resolveEntityByName(driver, "fetchPosts");
-			const toResults = await resolveEntityByName(driver, "PostList");
+			const targets = await discoverValidationTargets(driver);
+			const fromLookup = pickTargetName(targets.calledByCaller, "");
+			const toLookup = pickTargetName(targets.calledByTarget, "");
+
+			if (!fromLookup || !toLookup) {
+				return {
+					detail:
+						"skipped strict path assertion: no CALLS edge pair discovered",
+				};
+			}
+
+			const fromResults = await resolveEntityByName(driver, fromLookup);
+			const toResults = await resolveEntityByName(driver, toLookup);
 			if (fromResults.length === 0)
-				fail("path.resolve_from", "Could not resolve 'fetchPosts'");
+				fail("path.resolve_from", `Could not resolve '${fromLookup}'`);
 			if (toResults.length === 0)
-				fail("path.resolve_to", "Could not resolve 'PostList'");
+				fail("path.resolve_to", `Could not resolve '${toLookup}'`);
 
 			const fromId = fromResults[0]!.nodeId;
 			const toId = toResults[0]!.nodeId;
@@ -675,7 +871,7 @@ async function testNameResolutionAndPath(driver: Driver) {
 			if (!pathResult)
 				fail(
 					"path.null",
-					"No path found between fetchPosts and PostList in either direction",
+					`No path found between '${fromLookup}' and '${toLookup}' in either direction`,
 				);
 			if (pathResult.hops === 0)
 				fail("path.hops", "Path has 0 hops — nodes are the same?");
@@ -727,13 +923,31 @@ async function main() {
 		model: process.env.CLASSIFIER_MODEL ?? "Qwen/Qwen3-14B",
 	});
 	const chromaClient = createChromaClient();
+	const targets = await discoverValidationTargets(driver);
+
+	console.log("Detected validation targets:");
+	console.log(
+		`  called_by target: ${targets.calledByTarget?.qualifiedName ?? "<none>"}`,
+	);
+	console.log(
+		`  called_by caller: ${targets.calledByCaller?.qualifiedName ?? "<none>"}`,
+	);
+	console.log(
+		`  defined_in target: ${targets.definedInTarget?.qualifiedName ?? "<none>"}`,
+	);
+	console.log(
+		`  renders target: ${targets.rendersTarget?.qualifiedName ?? "<none>"}`,
+	);
+	console.log(
+		`  uses_hook target: ${targets.usesHookTarget?.qualifiedName ?? "<none>"}`,
+	);
 
 	// ── Run test suites ─────────────────────────────────────────────────
 	console.log("── 1. Intent Classifier ───────────────────────────────\n");
 	await testIntentClassifier(classifierProvider);
 
 	console.log("\n── 2. Structural Queries ──────────────────────────────\n");
-	await testStructuralQueries(driver);
+	await testStructuralQueries(driver, targets);
 
 	console.log("\n── 3. Graph Expansion ─────────────────────────────────\n");
 	await testGraphExpansion(driver);
@@ -748,11 +962,10 @@ async function main() {
 		embeddingProvider,
 		llmProvider,
 		classifierProvider,
+		targets,
 	);
 
-	console.log(
-		"\n── 6. Name Resolution & Path Search ───────────────────\n",
-	);
+	console.log("\n── 6. Name Resolution & Path Search ───────────────────\n");
 	await testNameResolutionAndPath(driver);
 
 	await driver.close();

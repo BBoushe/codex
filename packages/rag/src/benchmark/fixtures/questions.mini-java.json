@@ -1,0 +1,83 @@
+[
+	{
+		"query": "What class manages animals in the service layer?",
+		"expectedEntity": "AnimalService",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What utility capitalizes strings?",
+		"expectedEntity": "capitalize",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What class extends Animal and stores tricks?",
+		"expectedEntity": "Dog",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What method returns all sounds for stored animals?",
+		"expectedEntity": "getAllSounds",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What method serializes a dog to JSON?",
+		"expectedEntity": "toJson",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What calls addAnimal?",
+		"expectedEntity": "createDog",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "What does createDog call?",
+		"expectedEntity": "addAnimal",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "What does Dog inherit from?",
+		"expectedEntity": "Animal",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "What does Dog implement?",
+		"expectedEntity": "Printable",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "Where is capitalize defined?",
+		"expectedEntity": "Formatter.java",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "How does data flow from createDog to getAllSounds?",
+		"expectedEntity": "AnimalService",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["createDog", "addAnimal", "getAllSounds"]
+	},
+	{
+		"query": "What is the interaction chain between AnimalService and Dog?",
+		"expectedEntity": "AnimalService",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["AnimalService", "Dog", "addAnimal"]
+	},
+	{
+		"query": "How does Dog formatting connect to Formatter utilities?",
+		"expectedEntity": "Formatter",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["Dog", "format", "Formatter"]
+	}
+]

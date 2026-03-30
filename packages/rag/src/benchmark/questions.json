@@ -1,167 +1,197 @@
 [
-  {
-    "query": "What function fetches blog posts from the API?",
-    "expectedEntity": "fetchPosts",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "What component displays a list of posts?",
-    "expectedEntity": "PostList",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "What validates email addresses?",
-    "expectedEntity": "isValidEmail",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "What custom hook manages user state?",
-    "expectedEntity": "useUser",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "How does the user data flow from the API to the UI?",
-    "expectedEntity": "useUser",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "What function summarizes a blog post into an excerpt?",
-    "expectedEntity": "summarizePost",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "What component lets you confirm a destructive action?",
-    "expectedEntity": "Modal",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "What utility function converts text to a URL-friendly format?",
-    "expectedEntity": "slugify",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "What component shows a user's profile picture or a placeholder?",
-    "expectedEntity": "Avatar",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "How does the Header component know about the current user?",
-    "expectedEntity": "useUser",
-    "type": "semantic",
-    "expectedIntent": "hybrid"
-  },
-  {
-    "query": "What calls fetchPosts?",
-    "expectedEntity": "PostList",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "called_by"
-  },
-  {
-    "query": "What does App render?",
-    "expectedEntity": "Header",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "renders"
-  },
-  {
-    "query": "What hooks does PostList use?",
-    "expectedEntity": "useState",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "uses_hook"
-  },
-  {
-    "query": "Where is formatDate defined?",
-    "expectedEntity": "format.ts",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "defined_in"
-  },
-  {
-    "query": "What components accept an onClick prop?",
-    "expectedEntity": "Button",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "accepts_props"
-  },
-  {
-    "query": "What does PostCard render?",
-    "expectedEntity": "Avatar",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "renders"
-  },
-  {
-    "query": "What files does posts.ts import?",
-    "expectedEntity": "format.ts",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "what_imports"
-  },
-  {
-    "query": "What calls summarizePost?",
-    "expectedEntity": "PostCard",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "called_by"
-  },
-  {
-    "query": "What does Header render?",
-    "expectedEntity": "Avatar",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "renders"
-  },
-  {
-    "query": "What functions does validation.ts export?",
-    "expectedEntity": "isValidEmail",
-    "type": "structural",
-    "expectedIntent": "structural",
-    "expectedPattern": "exports"
-  },
-  {
-    "query": "How does data flow from fetchPosts to the PostCard component?",
-    "expectedEntity": "PostList",
-    "type": "architectural",
-    "expectedIntent": "hybrid",
-    "expectedEntities": ["fetchPosts", "PostList", "PostCard"]
-  },
-  {
-    "query": "What is the rendering chain from App to Button?",
-    "expectedEntity": "Header",
-    "type": "architectural",
-    "expectedIntent": "hybrid",
-    "expectedEntities": ["App", "Header", "Button"]
-  },
-  {
-    "query": "How does the user data flow from the API to the Header?",
-    "expectedEntity": "useUser",
-    "type": "architectural",
-    "expectedIntent": "hybrid",
-    "expectedEntities": ["fetchUser", "useUser", "Header"]
-  },
-  {
-    "query": "What is the relationship between PostCard and the API layer?",
-    "expectedEntity": "PostCard",
-    "type": "architectural",
-    "expectedIntent": "hybrid",
-    "expectedEntities": ["PostCard", "summarizePost", "deletePost"]
-  },
-  {
-    "query": "How do the utility functions connect to the components?",
-    "expectedEntity": "PostCard",
-    "type": "architectural",
-    "expectedIntent": "hybrid",
-    "expectedEntities": ["truncate", "formatDate", "summarizePost", "PostCard"]
-  }
+	{
+		"query": "What function fetches blog posts from the API?",
+		"expectedEntity": "fetchPosts",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What component displays a list of posts?",
+		"expectedEntity": "PostList",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What validates email addresses?",
+		"expectedEntity": "isValidEmail",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What custom hook manages user state?",
+		"expectedEntity": "useUser",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "How does the user data flow from the API to the UI?",
+		"expectedEntity": "useUser",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What function summarizes a blog post into an excerpt?",
+		"expectedEntity": "summarizePost",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What component lets you confirm a destructive action?",
+		"expectedEntity": "Modal",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What utility function converts text to a URL-friendly format?",
+		"expectedEntity": "slugify",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What component shows a user's profile picture or a placeholder?",
+		"expectedEntity": "Avatar",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "How does the Header component know about the current user?",
+		"expectedEntity": "useUser",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What calls fetchPosts?",
+		"expectedEntity": "PostList",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "called_by"
+	},
+	{
+		"query": "What does App render?",
+		"expectedEntity": "Header",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "renders"
+	},
+	{
+		"query": "What hooks does PostList use?",
+		"expectedEntity": "useState",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "uses_hook"
+	},
+	{
+		"query": "Where is formatDate defined?",
+		"expectedEntity": "format.ts",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "defined_in"
+	},
+	{
+		"query": "What components accept an onClick prop?",
+		"expectedEntity": "Button",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "accepts_props"
+	},
+	{
+		"query": "What does PostCard render?",
+		"expectedEntity": "Avatar",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "renders"
+	},
+	{
+		"query": "What files does posts.ts import?",
+		"expectedEntity": "format.ts",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "what_imports"
+	},
+	{
+		"query": "What calls summarizePost?",
+		"expectedEntity": "PostCard",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "called_by"
+	},
+	{
+		"query": "What does Header render?",
+		"expectedEntity": "Avatar",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "renders"
+	},
+	{
+		"query": "What functions does validation.ts export?",
+		"expectedEntity": "isValidEmail",
+		"type": "structural",
+		"expectedIntent": "structural",
+		"expectedPattern": "exports"
+	},
+	{
+		"query": "How does data flow from fetchPosts to the PostCard component?",
+		"expectedEntity": "PostList",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["fetchPosts", "PostList", "PostCard"]
+	},
+	{
+		"query": "What is the rendering chain from App to Button?",
+		"expectedEntity": "Header",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["App", "Header", "Button"]
+	},
+	{
+		"query": "How does the user data flow from the API to the Header?",
+		"expectedEntity": "useUser",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["fetchUser", "useUser", "Header"]
+	},
+	{
+		"query": "What is the relationship between PostCard and the API layer?",
+		"expectedEntity": "PostCard",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["PostCard", "summarizePost", "deletePost"]
+	},
+	{
+		"query": "How do the utility functions connect to the components?",
+		"expectedEntity": "PostCard",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["truncate", "formatDate", "summarizePost", "PostCard"]
+	},
+	{
+		"query": "Who is the top expert on posts.ts?",
+		"expectedEntity": "posts.ts",
+		"type": "social",
+		"expectedIntent": "social"
+	},
+	{
+		"query": "Who has the highest expertise for authentication code?",
+		"expectedEntity": "auth",
+		"type": "social",
+		"expectedIntent": "social"
+	},
+	{
+		"query": "Which developer is most associated with PostCard?",
+		"expectedEntity": "PostCard",
+		"type": "social",
+		"expectedIntent": "social"
+	},
+	{
+		"query": "Which files have the highest churn rate?",
+		"expectedEntity": "File",
+		"type": "property",
+		"expectedIntent": "property"
+	},
+	{
+		"query": "Show functions with the highest lines of code.",
+		"expectedEntity": "Function",
+		"type": "property",
+		"expectedIntent": "property"
+	}
 ]

@@ -1,0 +1,83 @@
+[
+	{
+		"query": "What service manages animals?",
+		"expectedEntity": "AnimalService",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What validates age values?",
+		"expectedEntity": "validate_age",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What class extends Animal with breed and tricks?",
+		"expectedEntity": "Dog",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What helper capitalizes text?",
+		"expectedEntity": "capitalize",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What method returns all sounds?",
+		"expectedEntity": "get_all_sounds",
+		"type": "semantic",
+		"expectedIntent": "hybrid"
+	},
+	{
+		"query": "What calls add_animal?",
+		"expectedEntity": "create_dog",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "What does create_dog call?",
+		"expectedEntity": "add_animal",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "What does Dog inherit from?",
+		"expectedEntity": "Animal",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "Where is validate_name defined?",
+		"expectedEntity": "validator.py",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "What does animal_service.py import from models?",
+		"expectedEntity": "Dog",
+		"type": "structural",
+		"expectedIntent": "structural"
+	},
+	{
+		"query": "How does data flow from create_dog to get_all_sounds?",
+		"expectedEntity": "AnimalService",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["create_dog", "add_animal", "get_all_sounds"]
+	},
+	{
+		"query": "What is the interaction chain from AnimalService to Dog?",
+		"expectedEntity": "AnimalService",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["AnimalService", "Dog", "create_dog"]
+	},
+	{
+		"query": "How do Dog serialization and formatter utilities connect?",
+		"expectedEntity": "format_template",
+		"type": "architectural",
+		"expectedIntent": "hybrid",
+		"expectedEntities": ["to_json", "format_template", "Dog"]
+	}
+]
