@@ -10,16 +10,36 @@
  */
 
 import * as d3 from "d3";
-import type { HierarchyResponse, HierarchyNode, HierarchyEdge, HebOptions } from "@/types/graph";
-import { moduleColor, EDGE_TYPE_COLORS, churnColor, doaColor } from "@/lib/colors";
+import type {
+	HierarchyResponse,
+	HierarchyNode,
+	HierarchyEdge,
+	HebOptions,
+	ShapeMode,
+} from "@/types/graph";
+import {
+	moduleColor,
+	EDGE_TYPE_COLORS,
+	churnColor,
+	doaColor,
+} from "@/lib/colors";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface LeafNode extends d3.HierarchyPointNode<HierarchyNode> {
+interface LayoutLeaf {
+	id: string;
+	name: string;
+	module: string;
+	node: HierarchyNode;
 	x: number;
 	y: number;
+	labelX: number;
+	labelRotate: number;
+	textAnchor: "start" | "end" | "middle";
+	flipText: boolean;
+	pointNode?: d3.HierarchyPointNode<HierarchyNode>;
 }
 
 export interface HebInstance {
@@ -92,8 +112,10 @@ function render(
 
 	// Read theme-aware colors from CSS variables
 	const styles = getComputedStyle(container);
-	const labelColor = styles.getPropertyValue("--color-text-muted").trim() || "#8892a4";
-	const strokeColor = styles.getPropertyValue("--color-background").trim() || "#0f1117";
+	const labelColor =
+		styles.getPropertyValue("--color-text-muted").trim() || "#8892a4";
+	const strokeColor =
+		styles.getPropertyValue("--color-background").trim() || "#0f1117";
 
 	// Clear previous render
 	d3.select(svgEl).selectAll("*").remove();
@@ -107,16 +129,16 @@ function render(
 	const root = d3
 		.hierarchy<HierarchyNode>(data.tree, (d) => d.children)
 		.sort((a, b) => d3.ascending(a.data.name, b.data.name));
+	const leaves = buildLayoutLeaves(root, options.shapeMode, radius);
 
-	const cluster = d3.cluster<HierarchyNode>().size([2 * Math.PI, radius]);
-	cluster(root);
-
-	const leaves = root.leaves() as LeafNode[];
+	if (leaves.length === 0) {
+		return;
+	}
 
 	// Build a map from nodeId → leaf node for edge drawing
-	const leafById = new Map<string, LeafNode>();
+	const leafById = new Map<string, LayoutLeaf>();
 	for (const leaf of leaves) {
-		leafById.set(leaf.data.id, leaf);
+		leafById.set(leaf.id, leaf);
 	}
 
 	// ── Filter edges ────────────────────────────────────────────────────────
@@ -131,7 +153,12 @@ function render(
 		.angle((d) => d.x)
 		.radius((d) => d.y);
 
-	const edgeGroup = svg.append("g").attr("class", "edges");
+	const graphGroup = svg
+		.append("g")
+		.attr("class", "graph-root")
+		.attr("transform", buildFocusTransform(leaves, options));
+
+	const edgeGroup = graphGroup.append("g").attr("class", "edges");
 
 	const edgePaths = edgeGroup
 		.selectAll("path")
@@ -145,31 +172,49 @@ function render(
 			const source = leafById.get(d.source);
 			const target = leafById.get(d.target);
 			if (!source || !target) return "";
-			// Build the path through ancestor nodes for bundling
-			const pathNodes = source
-				.path(target)
-				.filter((n): n is d3.HierarchyPointNode<HierarchyNode> => "x" in n && "y" in n);
-			return lineGenerator(pathNodes) ?? "";
+
+			if (
+				(options.shapeMode === "cluster" || options.shapeMode === "tree") &&
+				source.pointNode &&
+				target.pointNode
+			) {
+				const pathNodes = source.pointNode
+					.path(target.pointNode)
+					.filter(
+						(n): n is d3.HierarchyPointNode<HierarchyNode> =>
+							"x" in n && "y" in n,
+					);
+				return lineGenerator(pathNodes) ?? "";
+			}
+
+			if (options.shapeMode === "arc") {
+				const arcHeight = Math.abs(source.x - target.x) * 0.35;
+				const controlY = Math.min(source.y, target.y) - arcHeight;
+				return `M${source.x},${source.y} C${source.x},${controlY} ${target.x},${controlY} ${target.x},${target.y}`;
+			}
+
+			return `M${source.x},${source.y} L${target.x},${target.y}`;
 		})
-		.attr("stroke", (d) => EDGE_TYPE_COLORS[d.type] ?? EDGE_TYPE_COLORS["default"]!);
+		.attr(
+			"stroke",
+			(d) => EDGE_TYPE_COLORS[d.type] ?? EDGE_TYPE_COLORS["default"]!,
+		);
 
 	// ── Draw nodes ──────────────────────────────────────────────────────────
 
-	const nodeGroup = svg.append("g").attr("class", "nodes");
+	const nodeGroup = graphGroup.append("g").attr("class", "nodes");
 
 	nodeGroup
 		.selectAll("g")
 		.data(leaves)
 		.join("g")
 		.attr("transform", (d) => {
-			const angle = (d.x * 180) / Math.PI - 90;
-			const translate = `translate(${radialPoint(d.x, d.y).join(",")})`;
-			return `${translate} rotate(${angle})`;
+			const translate = `translate(${d.x},${d.y})`;
+			return `${translate} rotate(${d.labelRotate})`;
 		})
 		.each(function (d) {
 			const g = d3.select(this);
-			const isRightHalf = d.x < Math.PI;
-			const color = nodeColor(d.data, options);
+			const color = nodeColor(d.node, options);
 
 			// Circle
 			g.append("circle")
@@ -181,18 +226,18 @@ function render(
 
 			// Label
 			g.append("text")
-				.attr("x", isRightHalf ? 8 : -8)
-				.attr("text-anchor", isRightHalf ? "start" : "end")
+				.attr("x", d.labelX)
+				.attr("text-anchor", d.textAnchor)
 				.attr("dominant-baseline", "central")
 				.attr("font-size", "9px")
 				.attr("fill", labelColor)
 				.attr("cursor", "pointer")
-				.attr("transform", isRightHalf ? "" : "rotate(180)")
-				.text(truncate(d.data.name, 20));
+				.attr("transform", d.flipText ? "rotate(180)" : "")
+				.text(truncate(d.name, 20));
 		})
 		.on("mouseenter", function (_event, d) {
 			// Highlight connected edges
-			const nodeId = d.data.id;
+			const nodeId = d.id;
 			edgePaths
 				.attr("stroke-opacity", (e) =>
 					e.source === nodeId || e.target === nodeId ? 0.9 : 0.04,
@@ -209,26 +254,24 @@ function render(
 		.on("mouseleave", function (_event, d) {
 			edgePaths.attr("stroke-opacity", 0.4).attr("stroke-width", 1);
 			d3.select(this).select("circle").attr("r", 4);
-			if (d.data.id) options.onNodeHover(null);
+			if (d.id) options.onNodeHover(null);
 		})
 		.on("click", (_event, d) => {
-			options.onNodeClick(d.data.id);
+			options.onNodeClick(d.id);
 		});
 
 	// Draw highlight rings for search-matched nodes
 	if (options.highlightedNodeIds.size > 0) {
 		const highlightedLeaves = leaves.filter((d) =>
-			options.highlightedNodeIds.has(d.data.id),
+			options.highlightedNodeIds.has(d.id),
 		);
 		nodeGroup
-			.selectAll<SVGCircleElement, LeafNode>("circle.highlight-ring")
-			.data(highlightedLeaves, (d) => d.data.id)
+			.selectAll<SVGCircleElement, LayoutLeaf>("circle.highlight-ring")
+			.data(highlightedLeaves, (d) => d.id)
 			.join("circle")
 			.attr("class", "highlight-ring")
 			.attr("transform", (d) => {
-				const [px, py] = radialPoint(d.x, d.y);
-				const angle = (d.x * 180) / Math.PI - 90;
-				return `translate(${px},${py}) rotate(${angle})`;
+				return `translate(${d.x},${d.y})`;
 			})
 			.attr("r", 7)
 			.attr("fill", "none")
@@ -246,7 +289,7 @@ function render(
 function filterEdges(
 	edges: HierarchyEdge[],
 	options: HebOptions,
-	leafById: Map<string, LeafNode>,
+	leafById: Map<string, LayoutLeaf>,
 ): HierarchyEdge[] {
 	return edges.filter((e) => {
 		if (!options.edgeTypeFilter.includes(e.type)) return false;
@@ -254,12 +297,153 @@ function filterEdges(
 		if (options.moduleFilter !== null) {
 			const src = leafById.get(e.source);
 			const tgt = leafById.get(e.target);
-			if (src?.data.module !== options.moduleFilter && tgt?.data.module !== options.moduleFilter) {
+			if (
+				src?.module !== options.moduleFilter &&
+				tgt?.module !== options.moduleFilter
+			) {
 				return false;
 			}
 		}
 		return true;
 	});
+}
+
+function buildLayoutLeaves(
+	root: d3.HierarchyNode<HierarchyNode>,
+	shapeMode: ShapeMode,
+	radius: number,
+): LayoutLeaf[] {
+	if (shapeMode === "pack") {
+		const packRoot = d3
+			.hierarchy<HierarchyNode>(root.data, (d) => d.children)
+			.sum(() => 1)
+			.sort((a, b) => d3.ascending(a.data.name, b.data.name));
+
+		d3
+			.pack<HierarchyNode>()
+			.size([radius * 2, radius * 2])
+			.padding(3)(packRoot);
+
+		return packRoot
+			.leaves()
+			.map((leaf) => ({
+				id: leaf.data.id,
+				name: leaf.data.name,
+				module: leaf.data.module,
+				node: leaf.data,
+				x: leaf.x - radius,
+				y: leaf.y - radius,
+				labelX: 8,
+				labelRotate: 0,
+				textAnchor: "start",
+				flipText: false,
+			}))
+			.filter((leaf) => Number.isFinite(leaf.x) && Number.isFinite(leaf.y));
+	}
+
+	if (shapeMode === "arc") {
+		const leaves = root.leaves();
+		const n = leaves.length;
+		if (n === 0) return [];
+
+		const startX = -radius;
+		const spacing = n > 1 ? (radius * 2) / (n - 1) : 0;
+		const y = radius * 0.78;
+
+		return leaves
+			.map((leaf, index) => ({
+				id: leaf.data.id,
+				name: leaf.data.name,
+				module: leaf.data.module,
+				node: leaf.data,
+				x: startX + spacing * index,
+				y,
+				labelX: 0,
+				labelRotate: -55,
+				textAnchor: "end",
+				flipText: false,
+			}))
+			.filter((leaf) => Number.isFinite(leaf.x) && Number.isFinite(leaf.y));
+	}
+
+	const radialRoot = d3
+		.hierarchy<HierarchyNode>(root.data, (d) => d.children)
+		.sort((a, b) => d3.ascending(a.data.name, b.data.name));
+
+	if (shapeMode === "tree") {
+		d3.tree<HierarchyNode>().size([2 * Math.PI, radius])(radialRoot);
+	} else {
+		d3.cluster<HierarchyNode>().size([2 * Math.PI, radius])(radialRoot);
+	}
+
+	return radialRoot
+		.leaves()
+		.map((leaf) => {
+			const [x, y] = radialPoint(leaf.x, leaf.y);
+			const isRightHalf = leaf.x < Math.PI;
+
+			return {
+				id: leaf.data.id,
+				name: leaf.data.name,
+				module: leaf.data.module,
+				node: leaf.data,
+				x,
+				y,
+				labelX: isRightHalf ? 8 : -8,
+				labelRotate: (leaf.x * 180) / Math.PI - 90,
+				textAnchor: isRightHalf ? "start" : "end",
+				flipText: !isRightHalf,
+				pointNode: leaf,
+			};
+		})
+		.filter((leaf) => Number.isFinite(leaf.x) && Number.isFinite(leaf.y));
+}
+
+function buildFocusTransform(
+	leaves: LayoutLeaf[],
+	options: HebOptions,
+): string {
+	const scale = Math.max(0.5, Math.min(2.5, options.zoomScale));
+
+	let focusLeaves = leaves;
+	if (options.focusMode === "module" && options.moduleFilter) {
+		const byModule = leaves.filter(
+			(leaf) => leaf.module === options.moduleFilter,
+		);
+		if (byModule.length > 0) {
+			focusLeaves = byModule;
+		}
+	}
+
+	if (
+		options.focusMode === "highlights" &&
+		options.highlightedNodeIds.size > 0
+	) {
+		const highlighted = leaves.filter((leaf) =>
+			options.highlightedNodeIds.has(leaf.id),
+		);
+		if (highlighted.length > 0) {
+			focusLeaves = highlighted;
+		}
+	}
+
+	if (focusLeaves.length === 0) {
+		return `scale(${scale})`;
+	}
+
+	const centroid = focusLeaves.reduce(
+		(acc, leaf) => ({ x: acc.x + leaf.x, y: acc.y + leaf.y }),
+		{ x: 0, y: 0 },
+	);
+
+	const cx = centroid.x / focusLeaves.length;
+	const cy = centroid.y / focusLeaves.length;
+
+	if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+		return `scale(${scale})`;
+	}
+
+	return `translate(${-cx},${-cy}) scale(${scale})`;
 }
 
 function nodeColor(node: HierarchyNode, options: HebOptions): string {

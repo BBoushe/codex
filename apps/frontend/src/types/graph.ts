@@ -42,13 +42,29 @@ export interface HierarchyEdge {
 export interface HierarchyResponse {
 	tree: HierarchyNode;
 	edges: HierarchyEdge[];
+	churnDiagnostics?: {
+		totalFiles: number;
+		filesWithChurn: number;
+		minChurnRate: number | null;
+		maxChurnRate: number | null;
+		failureBreakdown: {
+			missingChurnFiles: number;
+			invalidChurnValues: number;
+			zeroVariance: boolean;
+		};
+	};
 }
 
 export type ColorMode = "module" | "churn" | "doa";
+export type ShapeMode = "cluster" | "pack" | "arc" | "tree";
+export type FocusMode = "all" | "module" | "highlights";
 
 export interface HebOptions {
 	edgeTypeFilter: string[];
 	colorMode: ColorMode;
+	shapeMode: ShapeMode;
+	zoomScale: number;
+	focusMode: FocusMode;
 	moduleFilter: string | null;
 	highlightedNodeIds: Set<string>;
 	onNodeHover: (nodeId: string | null) => void;

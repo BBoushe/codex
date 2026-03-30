@@ -10,7 +10,12 @@ import { Loader2 } from "lucide-react";
 import { useGraphStore } from "@/stores/graphStore";
 import { useEntityStore } from "@/stores/entityStore";
 import { useUiStore } from "@/stores/uiStore";
-import { initHeb, updateHeb, destroyHeb, type HebInstance } from "./hebVisualization";
+import {
+	initHeb,
+	updateHeb,
+	destroyHeb,
+	type HebInstance,
+} from "./hebVisualization";
 import { HebControls } from "./hebControls";
 import { HebTooltip } from "./hebTooltip";
 import { cn } from "@/lib/utils";
@@ -26,6 +31,9 @@ export function HebContainer() {
 		edgeTypeFilter,
 		moduleFilter,
 		colorMode,
+		shapeMode,
+		zoomScale,
+		focusMode,
 		highlightedNodeIds,
 		setHoveredNode,
 		fetchHierarchy,
@@ -52,6 +60,9 @@ export function HebContainer() {
 		instanceRef.current = initHeb(containerRef.current, hierarchyData, {
 			edgeTypeFilter,
 			colorMode,
+			shapeMode,
+			zoomScale,
+			focusMode,
 			moduleFilter,
 			highlightedNodeIds,
 			onNodeHover: setHoveredNode,
@@ -74,13 +85,24 @@ export function HebContainer() {
 		updateHeb(instanceRef.current, hierarchyData, {
 			edgeTypeFilter,
 			colorMode,
+			shapeMode,
+			zoomScale,
+			focusMode,
 			moduleFilter,
 			highlightedNodeIds,
 			onNodeHover: setHoveredNode,
 			onNodeClick: handleNodeClick,
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [edgeTypeFilter, colorMode, moduleFilter, highlightedNodeIds]);
+	}, [
+		edgeTypeFilter,
+		colorMode,
+		shapeMode,
+		zoomScale,
+		focusMode,
+		moduleFilter,
+		highlightedNodeIds,
+	]);
 
 	// Fetch if not loaded
 	useEffect(() => {

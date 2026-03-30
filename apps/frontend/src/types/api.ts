@@ -121,8 +121,20 @@ export type QueryIntent =
 			wasFallback: false;
 	  }
 	| { kind: "social"; extractedName: string; wasFallback: false }
-	| { kind: "hybrid"; subKind: HybridSubKind; topK: number; wasFallback: boolean }
-	| { kind: "property"; label: string; property: string; order: "asc" | "desc"; limit: number; wasFallback: false };
+	| {
+			kind: "hybrid";
+			subKind: HybridSubKind;
+			topK: number;
+			wasFallback: boolean;
+	  }
+	| {
+			kind: "property";
+			label: string;
+			property: string;
+			order: "asc" | "desc";
+			limit: number;
+			wasFallback: false;
+	  };
 
 export interface PipelineTimings {
 	classifierMs: number;
@@ -186,11 +198,36 @@ export interface PropertySearchResult {
 }
 
 export type SearchResult =
-	| { kind: "structural"; result: StructuralQueryResult; intent: QueryIntent; timings: PipelineTimings }
-	| { kind: "hybrid"; result: HybridSearchResult; intent: QueryIntent; timings: PipelineTimings }
-	| { kind: "social"; result: SocialSearchResult; intent: QueryIntent; timings: PipelineTimings }
-	| { kind: "property"; result: PropertySearchResult; intent: QueryIntent; timings: PipelineTimings }
-	| { kind: "path"; result: PathQueryResult; intent: QueryIntent; timings: PipelineTimings };
+	| {
+			kind: "structural";
+			result: StructuralQueryResult;
+			intent: QueryIntent;
+			timings: PipelineTimings;
+	  }
+	| {
+			kind: "hybrid";
+			result: HybridSearchResult;
+			intent: QueryIntent;
+			timings: PipelineTimings;
+	  }
+	| {
+			kind: "social";
+			result: SocialSearchResult;
+			intent: QueryIntent;
+			timings: PipelineTimings;
+	  }
+	| {
+			kind: "property";
+			result: PropertySearchResult;
+			intent: QueryIntent;
+			timings: PipelineTimings;
+	  }
+	| {
+			kind: "path";
+			result: PathQueryResult;
+			intent: QueryIntent;
+			timings: PipelineTimings;
+	  };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Browse tree (used by file browser component)
@@ -255,6 +292,37 @@ export interface ModelsResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Risk metrics (Truck Factor / ownership)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RiskOwnerSummary {
+	email: string;
+	name: string;
+	ownedFiles: number;
+	ownershipShare: number;
+}
+
+export interface RiskFailureBreakdown {
+	emptyExpertiseGraph: boolean;
+	staleMiningRun: boolean;
+	inconsistentDeveloperNodes: number;
+	inconsistentExpertiseEdges: number;
+}
+
+export interface RiskMetricsResponse {
+	truckFactor: number;
+	criticalDevelopers: RiskOwnerSummary[];
+	ownership: RiskOwnerSummary[];
+	diagnostics: {
+		developerCount: number;
+		fileCount: number;
+		expertiseEdgeCount: number;
+		orphanedFiles: number;
+		failureBreakdown: RiskFailureBreakdown;
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Generic API result wrapper
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -263,4 +331,6 @@ export interface ApiError {
 	status: number;
 }
 
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
+export type ApiResult<T> =
+	| { ok: true; data: T }
+	| { ok: false; error: ApiError };

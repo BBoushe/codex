@@ -18,7 +18,10 @@
 		"cli": "bun run --watch apps/cli/src/index.ts",
 		"build:cli": "bun build apps/cli/src/index.ts --compile --outfile codex",
 		"benchmark": "bun run packages/rag/src/benchmark/runBenchmark.ts",
-		"rag:validate": "bun run packages/rag/src/benchmark/validate.ts"
+		"benchmark:fixtures": "bun run scripts/benchmarkAllFixtures.ts",
+		"rag:validate": "bun run packages/rag/src/benchmark/validate.ts",
+		"week15:validate": "bun run scripts/week15Validation.ts",
+		"week15:validate:real": "BENCHMARK_REPO_LABEL=mabis-frontend bun run scripts/week15Validation.ts /tmp/codex-test-Mabis.Frontend"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

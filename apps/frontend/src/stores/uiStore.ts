@@ -8,7 +8,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type SidePanelMode = "entity" | "browser";
+export type SidePanelMode = "entity" | "browser" | "risk";
 export type MainAreaMode = "placeholder" | "heb" | "force";
 export type ThemeMode = "dark" | "light" | "system";
 

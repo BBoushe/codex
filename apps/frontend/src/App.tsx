@@ -43,10 +43,8 @@ export function App() {
 		<div
 			style={{
 				display: "grid",
-				gridTemplateRows: "56px 1fr",
-				gridTemplateColumns: leftPanelOpen
-					? "384px 1fr 380px"
-					: "0px 1fr 380px",
+				gridTemplateRows: "3rem 1fr",
+				gridTemplateColumns: leftPanelOpen ? "20% 1fr 20%" : "0px 1fr 20%",
 				height: "100vh",
 				overflow: "hidden",
 				minHeight: 0,

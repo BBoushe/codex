@@ -16,6 +16,7 @@ import type {
 	ExpandedContext,
 	FileTreeNode,
 	ModelsResponse,
+	RiskMetricsResponse,
 	SearchResult,
 	SubgraphResponse,
 } from "@/types/api";
@@ -35,7 +36,10 @@ async function parseJson<T>(response: Response): Promise<ApiResult<T>> {
 	if (!response.ok) {
 		let message = `HTTP ${response.status}`;
 		try {
-			const body = (await response.json()) as { message?: string; error?: string };
+			const body = (await response.json()) as {
+				message?: string;
+				error?: string;
+			};
 			message = body.message ?? body.error ?? message;
 		} catch {
 			// ignore parse error — use the HTTP status message
@@ -48,7 +52,10 @@ async function parseJson<T>(response: Response): Promise<ApiResult<T>> {
 		const data = (await response.json()) as T;
 		return { ok: true, data };
 	} catch {
-		return { ok: false, error: { message: "Failed to parse response JSON", status: 0 } };
+		return {
+			ok: false,
+			error: { message: "Failed to parse response JSON", status: 0 },
+		};
 	}
 }
 
@@ -143,8 +150,17 @@ export function fetchModels(): Promise<ApiResult<ModelsResponse>> {
 }
 
 /**
+ * Returns risk metrics for social ownership analysis (Truck Factor + diagnostics).
+ */
+export function fetchRiskMetrics(): Promise<ApiResult<RiskMetricsResponse>> {
+	return request<RiskMetricsResponse>("/api/graph/risk");
+}
+
+/**
  * Health check — confirms Neo4j and ChromaDB are reachable.
  */
-export function healthCheck(): Promise<ApiResult<{ status: string; neo4j: boolean; chroma: boolean }>> {
+export function healthCheck(): Promise<
+	ApiResult<{ status: string; neo4j: boolean; chroma: boolean }>
+> {
 	return request("/api/health");
 }

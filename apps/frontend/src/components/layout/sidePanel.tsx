@@ -6,11 +6,12 @@
  *   - Browser: file tree navigation
  */
 
-import { Code, FolderTree } from "lucide-react";
+import { Code, FolderTree, ShieldAlert } from "lucide-react";
 import { useUiStore, type SidePanelMode } from "@/stores/uiStore";
 import { useEntityStore } from "@/stores/entityStore";
 import { EntityDetail } from "@/components/entity/entityDetail";
 import { FileBrowser } from "@/components/browser/fileBrowser";
+import { RiskPanel } from "@/components/risk/riskPanel";
 import { cn } from "@/lib/utils";
 
 interface Tab {
@@ -22,6 +23,7 @@ interface Tab {
 const TABS: Tab[] = [
 	{ mode: "entity", icon: <Code size={14} />, label: "Entity" },
 	{ mode: "browser", icon: <FolderTree size={14} />, label: "Browser" },
+	{ mode: "risk", icon: <ShieldAlert size={14} />, label: "Risk" },
 ];
 
 export function SidePanel() {
@@ -59,6 +61,7 @@ export function SidePanel() {
 			<div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
 				{sidePanelMode === "entity" && <EntityDetail />}
 				{sidePanelMode === "browser" && <FileBrowser />}
+				{sidePanelMode === "risk" && <RiskPanel />}
 			</div>
 		</aside>
 	);

@@ -37,7 +37,12 @@ function Toggle({
 }) {
 	return (
 		<label className="flex items-center gap-2 cursor-pointer select-none group">
-			<input type="checkbox" checked={checked} onChange={onChange} className="hidden" />
+			<input
+				type="checkbox"
+				checked={checked}
+				onChange={onChange}
+				className="hidden"
+			/>
 			<span
 				className={cn(
 					"w-3.5 h-3.5 rounded-[3px] border shrink-0 transition-all duration-150 flex items-center justify-center",
@@ -48,14 +53,24 @@ function Toggle({
 			>
 				{checked && (
 					<svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-						<path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+						<path
+							d="M1 3L3 5L7 1"
+							stroke="white"
+							strokeWidth="1.5"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
 					</svg>
 				)}
 			</span>
-			<span className={cn(
-				"text-[11px] transition-colors",
-				checked ? "text-[--color-text]" : "text-[--color-text-muted] group-hover:text-[--color-text]",
-			)}>
+			<span
+				className={cn(
+					"text-[11px] transition-colors",
+					checked
+						? "text-[--color-text]"
+						: "text-[--color-text-muted] group-hover:text-[--color-text]",
+				)}
+			>
 				{label}
 			</span>
 		</label>
@@ -63,8 +78,18 @@ function Toggle({
 }
 
 export function ForceControls({ fgRef, onSizingChange }: ForceControlsProps) {
-	const { sizingMetric, showDevelopers, showFiles, groupByDirectory, groupByLabel, setSizingMetric, toggleDevelopers, toggleFiles, toggleGroupByDirectory, toggleGroupByLabel } =
-		useForceStore();
+	const {
+		sizingMetric,
+		showDevelopers,
+		showFiles,
+		groupByDirectory,
+		groupByLabel,
+		setSizingMetric,
+		toggleDevelopers,
+		toggleFiles,
+		toggleGroupByDirectory,
+		toggleGroupByLabel,
+	} = useForceStore();
 
 	function handleMetricChange(metric: SizingMetric) {
 		setSizingMetric(metric);
@@ -74,7 +99,7 @@ export function ForceControls({ fgRef, onSizingChange }: ForceControlsProps) {
 	return (
 		<div
 			className={cn(
-				"absolute top-3 right-3 w-44 rounded-lg border border-[--color-border]",
+				"absolute top-3 right-3 w-75 rounded-lg border border-[--color-border]",
 				"bg-[--color-surface]/95 backdrop-blur-md",
 				"shadow-(--shadow-md) p-3",
 				"text-xs flex flex-col gap-3",
@@ -107,10 +132,22 @@ export function ForceControls({ fgRef, onSizingChange }: ForceControlsProps) {
 
 			{/* Visibility toggles */}
 			<div className="flex flex-col gap-2">
-				<Toggle checked={showDevelopers} onChange={toggleDevelopers} label="Developers" />
+				<Toggle
+					checked={showDevelopers}
+					onChange={toggleDevelopers}
+					label="Developers"
+				/>
 				<Toggle checked={showFiles} onChange={toggleFiles} label="Files" />
-				<Toggle checked={groupByDirectory} onChange={toggleGroupByDirectory} label="Group dirs" />
-				<Toggle checked={groupByLabel} onChange={toggleGroupByLabel} label="Group labels" />
+				<Toggle
+					checked={groupByDirectory}
+					onChange={toggleGroupByDirectory}
+					label="Group dirs"
+				/>
+				<Toggle
+					checked={groupByLabel}
+					onChange={toggleGroupByLabel}
+					label="Group labels"
+				/>
 			</div>
 
 			<Separator />
