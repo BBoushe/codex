@@ -38,11 +38,11 @@ export function SearchBar() {
 			onSubmit={handleSubmit}
 			className="relative flex items-center w-full max-w-2xl"
 		>
-			<div className="absolute left-3 text-[--color-text-muted] pointer-events-none">
+			<div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none z-10 [&>svg]:block [&>svg]:shrink-0">
 				{isLoading ? (
 					<Loader2 size={16} className="animate-spin" />
 				) : (
-					<Search size={16} />
+					<Search size={16} strokeWidth={2.5} />
 				)}
 			</div>
 			<input
@@ -54,10 +54,10 @@ export function SearchBar() {
 				disabled={isLoading}
 				className={cn(
 					"w-full pl-9 pr-32 py-2 rounded-lg border text-sm shadow-sm",
-					"bg-[--color-surface] border-[--color-border]",
-					"text-[--color-text] placeholder:text-[--color-text-muted]",
-					"focus:outline-none focus:ring-2 focus:ring-[--color-accent] focus:border-transparent",
-					"disabled:opacity-60 transition-all hover:border-[--color-text-muted]",
+					"bg-surface border-border",
+					"text-text placeholder:text-text-muted",
+					"focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent",
+					"disabled:opacity-60 transition-all hover:border-text-muted",
 				)}
 			/>
 			{intentBadge && !isLoading && (
@@ -74,14 +74,15 @@ export function SearchBar() {
 				type="submit"
 				disabled={isLoading || !localQuery.trim()}
 				className={cn(
-					"absolute right-2 p-1.5 rounded-md",
-					"text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2]",
-					"focus:outline-none focus:ring-2 focus:ring-[--color-accent]",
-					"disabled:opacity-40 transition-all",
+					"absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 p-0 gap-0 border-0 leading-none rounded-md flex items-center justify-center [&>svg]:shrink-0",
+					"text-text hover:text-text hover:bg-surface-2",
+					"focus:outline-none focus:ring-2 focus:ring-accent",
+					"disabled:text-text-muted",
+					"disabled:opacity-60 transition-all",
 				)}
 				aria-label="Search"
 			>
-				<Search size={16} />
+				<Search size={16} strokeWidth={2.5} />
 			</button>
 		</form>
 	);

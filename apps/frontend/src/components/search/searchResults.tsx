@@ -17,7 +17,7 @@ export function SearchResults() {
 
 	if (isLoading) {
 		return (
-			<div className="flex items-center justify-center h-32 gap-2 text-sm text-[--color-text-muted]">
+			<div className="flex items-center justify-center h-32 gap-2 text-sm text-[var(--color-text-muted)]">
 				<Loader2 size={16} className="animate-spin" />
 				<span>Searching…</span>
 			</div>
@@ -28,14 +28,14 @@ export function SearchResults() {
 		return (
 			<div className="px-4 py-4">
 				<p className="text-sm text-red-400">Error: {error}</p>
-				<p className="text-xs text-[--color-text-muted] mt-1">Query: {query}</p>
+				<p className="text-xs text-[var(--color-text-muted)] mt-1">Query: {query}</p>
 			</div>
 		);
 	}
 
 	if (!result) {
 		return (
-			<div className="flex items-center justify-center h-32 text-sm text-[--color-text-muted]">
+			<div className="flex items-center justify-center h-32 text-sm text-[var(--color-text-muted)]">
 				Submit a query to see results.
 			</div>
 		);
@@ -45,8 +45,8 @@ export function SearchResults() {
 		<div className="flex flex-col h-full">
 			{/* Query as title */}
 			{query && (
-				<div className="px-4 py-2.5 border-b border-[--color-border] shrink-0">
-					<p className="text-sm font-medium text-[--color-text] leading-snug">{query}</p>
+				<div className="px-4 py-2.5 border-b border-[var(--color-border)] shrink-0">
+					<p className="text-sm font-medium text-[var(--color-text)] leading-snug">{query}</p>
 				</div>
 			)}
 			<div className="flex-1 overflow-y-auto">

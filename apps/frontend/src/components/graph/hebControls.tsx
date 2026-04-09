@@ -63,14 +63,14 @@ export function HebControls() {
 	return (
 		<div
 			className={cn(
-				"absolute top-3 right-3 w-75 rounded-lg border border-[--color-border]",
-				"bg-[--color-surface]/90 backdrop-blur-sm p-3",
+				"absolute top-3 right-3 w-75 rounded-lg border border-[var(--color-border)]",
+				"bg-[var(--color-surface)]/90 backdrop-blur-sm p-3",
 				"text-md flex flex-col gap-3",
 			)}
 		>
 			{/* Edge types */}
 			<div>
-				<p className="font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
+				<p className="font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
 					Edges
 				</p>
 				<div className="flex flex-col gap-1">
@@ -90,7 +90,7 @@ export function HebControls() {
 									"w-3 h-3 rounded-sm border shrink-0 flex items-center justify-center transition-colors",
 									edgeTypeFilter.includes(type)
 										? "border-transparent"
-										: "border-[--color-border] bg-transparent",
+										: "border-[var(--color-border)] bg-transparent",
 								)}
 								style={
 									edgeTypeFilter.includes(type)
@@ -113,7 +113,7 @@ export function HebControls() {
 									</svg>
 								)}
 							</span>
-							<span className="text-[--color-text-muted]">{type}</span>
+							<span className="text-[var(--color-text-muted)]">{type}</span>
 						</label>
 					))}
 				</div>
@@ -121,7 +121,7 @@ export function HebControls() {
 
 			{/* Color mode */}
 			<div>
-				<p className="font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
+				<p className="font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
 					Color
 				</p>
 				<div className="flex gap-1">
@@ -132,8 +132,8 @@ export function HebControls() {
 							className={cn(
 								"flex-1 py-0.5 rounded text-[10px] transition-colors",
 								colorMode === m.value
-									? "bg-[--color-accent] text-white"
-									: "text-[--color-text-muted] hover:text-[--color-text] border border-[--color-border]",
+									? "bg-[var(--color-accent)] text-white"
+									: "text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]",
 							)}
 						>
 							{m.label}
@@ -144,7 +144,7 @@ export function HebControls() {
 
 			{/* Shape mode */}
 			<div>
-				<p className="font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
+				<p className="font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
 					Shape
 				</p>
 				<div className="grid grid-cols-2 gap-1">
@@ -155,8 +155,8 @@ export function HebControls() {
 							className={cn(
 								"py-0.5 rounded text-[10px] transition-colors",
 								shapeMode === mode.value
-									? "bg-[--color-accent] text-white"
-									: "text-[--color-text-muted] hover:text-[--color-text] border border-[--color-border]",
+									? "bg-[var(--color-accent)] text-white"
+									: "text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]",
 							)}
 						>
 							{mode.label}
@@ -167,7 +167,7 @@ export function HebControls() {
 
 			{/* Zoom mode */}
 			<div>
-				<p className="font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
+				<p className="font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
 					Zoom
 				</p>
 				<div className="grid grid-cols-3 gap-1">
@@ -180,8 +180,8 @@ export function HebControls() {
 								className={cn(
 									"py-0.5 rounded text-[10px] transition-colors",
 									active
-										? "bg-[--color-accent] text-white"
-										: "text-[--color-text-muted] hover:text-[--color-text] border border-[--color-border]",
+										? "bg-[var(--color-accent)] text-white"
+										: "text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]",
 								)}
 							>
 								{Math.round(preset * 100)}%
@@ -193,7 +193,7 @@ export function HebControls() {
 
 			{/* Focus mode */}
 			<div>
-				<p className="font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
+				<p className="font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
 					Focus
 				</p>
 				<div className="grid grid-cols-3 gap-1">
@@ -204,8 +204,8 @@ export function HebControls() {
 							className={cn(
 								"py-0.5 rounded text-[10px] transition-colors",
 								focusMode === mode.value
-									? "bg-[--color-accent] text-white"
-									: "text-[--color-text-muted] hover:text-[--color-text] border border-[--color-border]",
+									? "bg-[var(--color-accent)] text-white"
+									: "text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]",
 							)}
 						>
 							{mode.label}
@@ -217,16 +217,16 @@ export function HebControls() {
 			{/* Module focus */}
 			{modules.length > 0 && (
 				<div>
-					<p className="font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
+					<p className="font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
 						Focus
 					</p>
 					<select
 						value={moduleFilter ?? ""}
 						onChange={(e) => setModuleFilter(e.target.value || null)}
 						className={cn(
-							"w-full py-1 px-1.5 rounded border border-[--color-border]",
-							"bg-[--color-surface-2] text-[--color-text] text-[10px]",
-							"focus:outline-none focus:border-[--color-accent]",
+							"w-full py-1 px-1.5 rounded border border-[var(--color-border)]",
+							"bg-[var(--color-surface-2)] text-[var(--color-text)] text-[10px]",
+							"focus:outline-none focus:border-[var(--color-accent)]",
 						)}
 					>
 						<option value="">All modules</option>
@@ -242,10 +242,10 @@ export function HebControls() {
 			{/* Churn validation diagnostics */}
 			{churnDiagnostics && (
 				<div>
-					<p className="font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
+					<p className="font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
 						Churn Checks
 					</p>
-					<div className="text-[10px] text-[--color-text-subtle] flex flex-col gap-0.5">
+					<div className="text-[10px] text-[var(--color-text-subtle)] flex flex-col gap-0.5">
 						<span>
 							{churnDiagnostics.filesWithChurn}/{churnDiagnostics.totalFiles}{" "}
 							files have churn

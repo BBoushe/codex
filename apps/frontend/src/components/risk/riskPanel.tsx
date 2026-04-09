@@ -84,7 +84,7 @@ export function RiskPanel() {
 
 	if (state.isLoading) {
 		return (
-			<div className="h-full p-4 flex items-center justify-center text-sm text-[--color-text-muted]">
+			<div className="h-full p-4 flex items-center justify-center text-sm text-[var(--color-text-muted)]">
 				Loading risk metrics...
 			</div>
 		);
@@ -97,13 +97,13 @@ export function RiskPanel() {
 					<AlertTriangle size={15} />
 					<span>Failed to load risk metrics</span>
 				</div>
-				<p className="text-xs text-[--color-text-muted]">{state.error}</p>
+				<p className="text-xs text-[var(--color-text-muted)]">{state.error}</p>
 				<button
 					onClick={reloadRisk}
 					className={cn(
 						"w-fit px-2.5 py-1.5 rounded text-xs",
-						"border border-[--color-border] text-[--color-text-muted]",
-						"hover:text-[--color-text] hover:border-[--color-accent]/40",
+						"border border-[var(--color-border)] text-[var(--color-text-muted)]",
+						"hover:text-[var(--color-text)] hover:border-[var(--color-accent)]/40",
 					)}
 				>
 					Retry
@@ -123,44 +123,44 @@ export function RiskPanel() {
 		<div className="h-full p-4 flex flex-col gap-4">
 			<header className="flex items-center justify-between">
 				<div>
-					<p className="text-xs uppercase tracking-wider text-[--color-text-muted]">
+					<p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
 						Risk
 					</p>
-					<h3 className="text-sm font-semibold text-[--color-text]">
+					<h3 className="text-sm font-semibold text-[var(--color-text)]">
 						Ownership Resilience
 					</h3>
 				</div>
 				<button
 					onClick={reloadRisk}
 					className={cn(
-						"text-[10px] px-2 py-1 rounded border border-[--color-border]",
-						"text-[--color-text-muted] hover:text-[--color-text]",
+						"text-[10px] px-2 py-1 rounded border border-[var(--color-border)]",
+						"text-[var(--color-text-muted)] hover:text-[var(--color-text)]",
 					)}
 				>
 					Refresh
 				</button>
 			</header>
 
-			<section className="rounded-md border border-[--color-border] bg-[--color-surface-2] p-3">
+			<section className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
 				<div className="flex items-center justify-between">
-					<span className="text-xs text-[--color-text-muted]">
+					<span className="text-xs text-[var(--color-text-muted)]">
 						Truck Factor
 					</span>
-					<span className="text-lg font-semibold text-[--color-text]">
+					<span className="text-lg font-semibold text-[var(--color-text)]">
 						{truckFactor}
 					</span>
 				</div>
-				<p className="text-[10px] text-[--color-text-subtle] mt-2">
+				<p className="text-[10px] text-[var(--color-text-subtle)] mt-2">
 					Critical departures required to orphan more than 50% of owned files.
 				</p>
 			</section>
 
-			<section className="rounded-md border border-[--color-border] p-3">
-				<p className="text-xs text-[--color-text-muted] uppercase tracking-wider mb-2">
+			<section className="rounded-md border border-[var(--color-border)] p-3">
+				<p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
 					Critical Developers
 				</p>
 				{criticalDevelopers.length === 0 ? (
-					<p className="text-xs text-[--color-text-subtle]">
+					<p className="text-xs text-[var(--color-text-subtle)]">
 						No critical developers identified yet.
 					</p>
 				) : (
@@ -170,8 +170,8 @@ export function RiskPanel() {
 								key={dev.email}
 								className="flex items-center justify-between text-xs"
 							>
-								<span className="text-[--color-text]">{dev.name}</span>
-								<span className="text-[--color-text-muted]">
+								<span className="text-[var(--color-text)]">{dev.name}</span>
+								<span className="text-[var(--color-text-muted)]">
 									{dev.ownedFiles} files
 								</span>
 							</li>
@@ -180,12 +180,12 @@ export function RiskPanel() {
 				)}
 			</section>
 
-			<section className="rounded-md border border-[--color-border] p-3">
-				<p className="text-xs text-[--color-text-muted] uppercase tracking-wider mb-2">
+			<section className="rounded-md border border-[var(--color-border)] p-3">
+				<p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
 					Ownership Distribution
 				</p>
 				{ownership.length === 0 ? (
-					<p className="text-xs text-[--color-text-subtle]">
+					<p className="text-xs text-[var(--color-text-subtle)]">
 						No ownership data available.
 					</p>
 				) : (
@@ -195,8 +195,8 @@ export function RiskPanel() {
 								key={dev.email}
 								className="flex items-center justify-between text-xs"
 							>
-								<span className="text-[--color-text] truncate">{dev.name}</span>
-								<span className="text-[--color-text-muted]">
+								<span className="text-[var(--color-text)] truncate">{dev.name}</span>
+								<span className="text-[var(--color-text-muted)]">
 									{(dev.ownershipShare * 100).toFixed(1)}% ({dev.ownedFiles})
 								</span>
 							</li>
@@ -205,8 +205,8 @@ export function RiskPanel() {
 				)}
 			</section>
 
-			<section className="rounded-md border border-[--color-border] p-3">
-				<p className="text-xs text-[--color-text-muted] uppercase tracking-wider mb-2">
+			<section className="rounded-md border border-[var(--color-border)] p-3">
+				<p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
 					Diagnostics
 				</p>
 				<div className="grid grid-cols-2 gap-2 text-[10px]">
@@ -232,7 +232,7 @@ export function RiskPanel() {
 						{failureItems.map((item) => (
 							<li
 								key={item}
-								className="text-[11px] text-[--color-text-muted] flex items-start gap-1.5"
+								className="text-[11px] text-[var(--color-text-muted)] flex items-start gap-1.5"
 							>
 								<Users size={11} className="mt-0.5 text-amber-300" />
 								<span>{item}</span>
@@ -252,9 +252,9 @@ interface DiagCellProps {
 
 function DiagCell({ label, value }: DiagCellProps) {
 	return (
-		<div className="rounded border border-[--color-border] bg-[--color-surface-2] p-2">
-			<p className="text-[--color-text-subtle]">{label}</p>
-			<p className="text-[--color-text] font-medium mt-0.5">{value}</p>
+		<div className="rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] p-2">
+			<p className="text-[var(--color-text-subtle)]">{label}</p>
+			<p className="text-[var(--color-text)] font-medium mt-0.5">{value}</p>
 		</div>
 	);
 }

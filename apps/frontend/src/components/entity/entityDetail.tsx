@@ -27,7 +27,7 @@ export function EntityDetail() {
 
 	if (isLoading) {
 		return (
-			<div className="flex items-center justify-center h-32 gap-2 text-sm text-[--color-text-muted]">
+			<div className="flex items-center justify-center h-32 gap-2 text-sm text-[var(--color-text-muted)]">
 				<Loader2 size={16} className="animate-spin" />
 				<span>Loading entity…</span>
 			</div>
@@ -39,18 +39,18 @@ export function EntityDetail() {
 			<div className="px-4 py-4">
 				<button
 					onClick={handleBack}
-					className="flex items-center gap-1 text-xs text-[--color-text-muted] hover:text-[--color-text] mb-3 transition-colors"
+					className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] mb-3 transition-colors"
 				>
 					<ArrowLeft size={12} /> Back
 				</button>
-				<p className="text-sm text-[--color-error]">{error}</p>
+				<p className="text-sm text-[var(--color-error)]">{error}</p>
 			</div>
 		);
 	}
 
 	if (!expandedContext) {
 		return (
-			<div className="flex items-center justify-center h-32 text-sm text-[--color-text-muted]">
+			<div className="flex items-center justify-center h-32 text-sm text-[var(--color-text-muted)]">
 				Select an entity to view details.
 			</div>
 		);
@@ -64,20 +64,20 @@ export function EntityDetail() {
 	return (
 		<div className="flex flex-col animate-fade-in">
 			{/* Back button */}
-			<div className="px-4 py-2 border-b border-[--color-border]">
+			<div className="px-4 py-2 border-b border-[var(--color-border)]">
 				<button
 					onClick={handleBack}
-					className="flex items-center gap-1 text-xs text-[--color-text-muted] hover:text-[--color-text] transition-colors"
+					className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
 				>
 					<ArrowLeft size={12} /> Back to results
 				</button>
 			</div>
 
 			{/* Header */}
-			<div className="px-4 py-3 border-b border-[--color-border] bg-[--color-surface]">
+			<div className="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
 				<div className="flex items-start gap-2 mb-1.5">
 					<LabelBadge label={target.label} />
-					<h2 className="text-sm font-semibold text-[--color-text] leading-snug flex-1 min-w-0">
+					<h2 className="text-sm font-semibold text-[var(--color-text)] leading-snug flex-1 min-w-0">
 						{target.name}
 					</h2>
 					<Button
@@ -93,7 +93,7 @@ export function EntityDetail() {
 						<Compass size={11} /> Explore
 					</Button>
 				</div>
-				<p className="text-[11px] text-[--color-text-muted] font-mono truncate">
+				<p className="text-[11px] text-[var(--color-text-muted)] font-mono truncate">
 					{target.filePath}
 					{!isFile && target.startLine > 0 && (
 						<span className="opacity-60">
@@ -103,7 +103,7 @@ export function EntityDetail() {
 					)}
 				</p>
 				{isFile && file && (
-					<p className="text-[10px] text-[--color-text-muted] mt-1">
+					<p className="text-[10px] text-[var(--color-text-muted)] mt-1">
 						Language: {file.language}
 					</p>
 				)}
@@ -156,7 +156,7 @@ export function EntityDetail() {
 						{importedFiles.map((f) => (
 							<li
 								key={f.filePath}
-								className="px-4 py-1.5 text-[11px] font-mono text-[--color-text-muted] border-b border-[--color-border] truncate last:border-0 hover:bg-[--color-surface-2] transition-colors"
+								className="px-4 py-1.5 text-[11px] font-mono text-[var(--color-text-muted)] border-b border-[var(--color-border)] truncate last:border-0 hover:bg-[var(--color-surface-2)] transition-colors"
 							>
 								{f.filePath}
 							</li>
@@ -172,22 +172,22 @@ export function EntityDetail() {
 						{developers.map((dev) => (
 							<li
 								key={dev.email}
-								className="flex items-center gap-3 px-4 py-2.5 border-b border-[--color-border] last:border-0 hover:bg-[--color-surface-2] transition-colors"
+								className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-2)] transition-colors"
 							>
-								<div className="w-7 h-7 rounded-full bg-[--color-surface-2] border border-[--color-border] flex items-center justify-center shrink-0">
-									<User size={13} className="text-[--color-text-muted]" />
+								<div className="w-7 h-7 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] flex items-center justify-center shrink-0">
+									<User size={13} className="text-[var(--color-text-muted)]" />
 								</div>
 								<div className="flex-1 min-w-0">
-									<p className="text-xs text-[--color-text] font-medium truncate">
+									<p className="text-xs text-[var(--color-text)] font-medium truncate">
 										{dev.name}
 									</p>
-									<p className="text-[10px] text-[--color-text-muted] font-mono truncate mb-1">
+									<p className="text-[10px] text-[var(--color-text-muted)] font-mono truncate mb-1">
 										{dev.email}
 									</p>
 									<Progress value={dev.doaScore} variant="doa" />
 								</div>
 								<div className="text-right shrink-0">
-									<p className="text-xs font-mono text-[--color-accent]">
+									<p className="text-xs font-mono text-[var(--color-accent)]">
 										{formatDoa(dev.doaScore)}
 									</p>
 									{dev.isFirstAuthor && (

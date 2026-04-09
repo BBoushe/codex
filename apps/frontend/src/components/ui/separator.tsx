@@ -11,14 +11,14 @@ export function Separator({ orientation = "horizontal", className }: SeparatorPr
 			<div
 				role="separator"
 				aria-orientation="vertical"
-				className={cn("w-px self-stretch bg-[--color-border]", className)}
+				className={cn("w-px self-stretch bg-[var(--color-border)]", className)}
 			/>
 		);
 	}
 	return (
 		<div
 			role="separator"
-			className={cn("h-px w-full bg-[--color-border]", className)}
+			className={cn("h-px w-full bg-[var(--color-border)]", className)}
 		/>
 	);
 }

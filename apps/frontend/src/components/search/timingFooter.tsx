@@ -34,12 +34,12 @@ export function TimingFooter({ timings, intent }: TimingFooterProps) {
 	].filter((p) => p.value > 0);
 
 	return (
-		<div className="px-4 py-2 border-t border-[--color-border] text-[10px] text-[--color-text-muted] flex flex-wrap gap-x-3 gap-y-1">
-			<span className="font-medium text-[--color-text]">
+		<div className="px-4 py-2 border-t border-[var(--color-border)] text-[10px] text-[var(--color-text-muted)] flex flex-wrap gap-x-3 gap-y-1">
+			<span className="font-medium text-[var(--color-text)]">
 				{formatMs(timings.totalMs)}
 			</span>
 			{intent && (
-				<span className="text-[--color-accent]">
+				<span className="text-[var(--color-accent)]">
 					{formatIntent(intent)}
 				</span>
 			)}

@@ -443,7 +443,9 @@ function buildFocusTransform(
 		return `scale(${scale})`;
 	}
 
-	return `translate(${-cx},${-cy}) scale(${scale})`;
+	// SVG transform lists are applied right-to-left. Put scale first so
+	// translation is applied in graph-space before zoom scaling.
+	return `scale(${scale}) translate(${-cx},${-cy})`;
 }
 
 function nodeColor(node: HierarchyNode, options: HebOptions): string {

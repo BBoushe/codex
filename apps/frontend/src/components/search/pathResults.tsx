@@ -24,7 +24,7 @@ export function PathResults({ result }: PathResultsProps) {
 
 	return (
 		<div className="px-4 py-4">
-			<p className="text-[11px] text-[--color-text-muted] mb-3">
+			<p className="text-[11px] text-[var(--color-text-muted)] mb-3">
 				{result.hops} hop{result.hops !== 1 ? "s" : ""} ·{" "}
 				{result.edgeTypes.join(" → ")}
 			</p>
@@ -35,24 +35,24 @@ export function PathResults({ result }: PathResultsProps) {
 						<button
 							onClick={() => handleNodeClick(node.nodeId)}
 							className={cn(
-								"text-left px-3 py-2 rounded-lg border border-[--color-border]",
-								"hover:border-[--color-accent] hover:bg-[--color-surface-2]",
+								"text-left px-3 py-2 rounded-lg border border-[var(--color-border)]",
+								"hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)]",
 								"transition-colors",
 							)}
 						>
 							<div className="flex items-center gap-2">
 								<LabelBadge label={node.label} />
-								<span className="text-sm text-[--color-text] font-medium truncate">
+								<span className="text-sm text-[var(--color-text)] font-medium truncate">
 									{node.name}
 								</span>
 							</div>
-							<p className="text-[11px] text-[--color-text-muted] font-mono truncate mt-0.5">
+							<p className="text-[11px] text-[var(--color-text-muted)] font-mono truncate mt-0.5">
 								{node.filePath}
 							</p>
 						</button>
 
 						{idx < result.path.length - 1 && (
-							<div className="flex items-center gap-2 pl-3 text-[11px] text-[--color-text-muted]">
+							<div className="flex items-center gap-2 pl-3 text-[11px] text-[var(--color-text-muted)]">
 								<ArrowRight size={12} />
 								<span className="font-mono">{result.edgeTypes[idx]}</span>
 							</div>

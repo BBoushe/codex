@@ -24,14 +24,14 @@ export function Tooltip({
 					side={side}
 					sideOffset={6}
 					className={cn(
-						"z-50 max-w-xs rounded-md border border-[--color-border] px-2.5 py-1.5",
-						"text-xs text-[--color-text] shadow-md",
+						"z-50 max-w-xs rounded-md border border-[var(--color-border)] px-2.5 py-1.5",
+						"text-xs text-[var(--color-text)] shadow-md",
 						"animate-in fade-in-0 zoom-in-95",
 					)}
 					style={{ background: "var(--color-surface-2)" }}
 				>
 					{content}
-					<RadixTooltip.Arrow className="fill-[--color-border]" />
+					<RadixTooltip.Arrow className="fill-[var(--color-border)]" />
 				</RadixTooltip.Content>
 			</RadixTooltip.Portal>
 		</RadixTooltip.Root>

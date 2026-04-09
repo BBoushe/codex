@@ -24,8 +24,8 @@ export function StructuralResults({ result }: StructuralResultsProps) {
 
 	return (
 		<div className="flex flex-col">
-			<div className="px-4 py-2 text-[11px] text-[--color-text-muted] border-b border-[--color-border]">
-				<span className="font-mono text-[--color-accent]">{result.pattern}</span>
+			<div className="px-4 py-2 text-[11px] text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+				<span className="font-mono text-[var(--color-accent)]">{result.pattern}</span>
 				{" · "}
 				<span>"{result.query}"</span>
 				{" · "}
@@ -33,7 +33,7 @@ export function StructuralResults({ result }: StructuralResultsProps) {
 			</div>
 
 			{result.entities.length === 0 ? (
-				<p className="px-4 py-6 text-sm text-[--color-text-muted] text-center">
+				<p className="px-4 py-6 text-sm text-[var(--color-text-muted)] text-center">
 					No entities found.
 				</p>
 			) : (
@@ -44,18 +44,18 @@ export function StructuralResults({ result }: StructuralResultsProps) {
 								onClick={() => handleEntityClick(entity.nodeId)}
 								disabled={!entity.nodeId}
 								className={cn(
-									"w-full text-left px-4 py-2.5 border-b border-[--color-border]",
-									"hover:bg-[--color-surface-2] transition-colors",
+									"w-full text-left px-4 py-2.5 border-b border-[var(--color-border)]",
+									"hover:bg-[var(--color-surface-2)] transition-colors",
 									"disabled:cursor-default disabled:hover:bg-transparent",
 								)}
 							>
 								<div className="flex items-center gap-2 mb-0.5">
 									<LabelBadge label={entity.label} />
-									<span className="text-sm text-[--color-text] font-medium truncate">
+									<span className="text-sm text-[var(--color-text)] font-medium truncate">
 										{entity.name || entity.qualifiedName || entity.filePath}
 									</span>
 								</div>
-								<p className="text-[11px] text-[--color-text-muted] font-mono truncate">
+								<p className="text-[11px] text-[var(--color-text-muted)] font-mono truncate">
 									{entity.filePath}
 									{entity.startLine !== undefined && (
 										<span className="ml-1 opacity-60">

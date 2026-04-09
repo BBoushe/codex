@@ -20,10 +20,10 @@ export function RelationshipList({ label, entities }: RelationshipListProps) {
 	if (entities.length === 0) return null;
 
 	return (
-		<div className="border-b border-[--color-border]">
+		<div className="border-b border-[var(--color-border)]">
 			<button
 				onClick={() => setOpen((v) => !v)}
-				className="w-full flex items-center gap-2 px-4 py-2 text-xs text-[--color-text-muted] hover:text-[--color-text] transition-colors"
+				className="w-full flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
 			>
 				{open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
 				<span className="font-medium uppercase tracking-wider">{label}</span>
@@ -36,20 +36,20 @@ export function RelationshipList({ label, entities }: RelationshipListProps) {
 						<li key={entity.nodeId || idx}>
 							<button
 								onClick={() => selectEntity(entity.nodeId)}
-								className="w-full text-left px-4 py-2 border-t border-[--color-border] hover:bg-[--color-surface-2] transition-colors"
+								className="w-full text-left px-4 py-2 border-t border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors"
 							>
 								<div className="flex items-center gap-2">
 									<LabelBadge label={entity.label} />
-									<span className="text-xs text-[--color-text] truncate">
+									<span className="text-xs text-[var(--color-text)] truncate">
 										{entity.name}
 									</span>
 									{entity.callSiteLine !== undefined && (
-										<span className="ml-auto text-[10px] text-[--color-text-muted] font-mono shrink-0">
+										<span className="ml-auto text-[10px] text-[var(--color-text-muted)] font-mono shrink-0">
 											:{entity.callSiteLine}
 										</span>
 									)}
 								</div>
-								<p className="text-[10px] text-[--color-text-muted] font-mono truncate mt-0.5">
+								<p className="text-[10px] text-[var(--color-text-muted)] font-mono truncate mt-0.5">
 									{entity.filePath}
 								</p>
 							</button>

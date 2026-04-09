@@ -47,8 +47,8 @@ function Toggle({
 				className={cn(
 					"w-3.5 h-3.5 rounded-[3px] border shrink-0 transition-all duration-150 flex items-center justify-center",
 					checked
-						? "bg-[--color-accent] border-[--color-accent]"
-						: "border-[--color-border] bg-transparent group-hover:border-[--color-text-muted]",
+						? "bg-[var(--color-accent)] border-[var(--color-accent)]"
+						: "border-[var(--color-border)] bg-transparent group-hover:border-[var(--color-text-muted)]",
 				)}
 			>
 				{checked && (
@@ -67,8 +67,8 @@ function Toggle({
 				className={cn(
 					"text-[11px] transition-colors",
 					checked
-						? "text-[--color-text]"
-						: "text-[--color-text-muted] group-hover:text-[--color-text]",
+						? "text-[var(--color-text)]"
+						: "text-[var(--color-text-muted)] group-hover:text-[var(--color-text)]",
 				)}
 			>
 				{label}
@@ -99,15 +99,15 @@ export function ForceControls({ fgRef, onSizingChange }: ForceControlsProps) {
 	return (
 		<div
 			className={cn(
-				"absolute top-3 right-3 w-75 rounded-lg border border-[--color-border]",
-				"bg-[--color-surface]/95 backdrop-blur-md",
+				"absolute z-20 top-3 right-3 w-75 rounded-lg border border-[var(--color-border)]",
+				"bg-[var(--color-surface)]/95 backdrop-blur-md",
 				"shadow-(--shadow-md) p-3",
 				"text-xs flex flex-col gap-3",
 			)}
 		>
 			{/* Size by */}
 			<div>
-				<p className="text-[10px] font-medium text-[--color-text-muted] uppercase tracking-wider mb-1.5">
+				<p className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
 					Size by
 				</p>
 				<div className="flex gap-1">
@@ -118,8 +118,8 @@ export function ForceControls({ fgRef, onSizingChange }: ForceControlsProps) {
 							className={cn(
 								"flex-1 py-1 rounded-[3px] text-[10px] font-medium transition-all duration-150",
 								sizingMetric === m.value
-									? "bg-[--color-accent] text-white shadow-(--shadow-xs)"
-									: "text-[--color-text-muted] hover:text-[--color-text] border border-[--color-border] hover:border-[--color-text-muted] hover:bg-[--color-surface-2]",
+									? "bg-[var(--color-accent)] text-white shadow-(--shadow-xs)"
+									: "text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)] hover:border-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]",
 							)}
 						>
 							{m.label}

@@ -32,7 +32,7 @@ export function HybridResults({ result }: HybridResultsProps) {
 	return (
 		<div className="flex flex-col gap-0">
 			{/* Answer — rendered as markdown */}
-			<div className="px-4 py-3 prose prose-sm prose-invert max-w-none text-[--color-text] [&_a]:text-[--color-accent] [&_a]:no-underline [&_a:hover]:underline">
+			<div className="px-4 py-3 prose prose-sm prose-invert max-w-none text-[var(--color-text)] [&_a]:text-[var(--color-accent)] [&_a]:no-underline [&_a:hover]:underline">
 				<ReactMarkdown
 					remarkPlugins={[remarkGfm]}
 					components={{ code: ShikiCodeBlock }}
@@ -42,10 +42,10 @@ export function HybridResults({ result }: HybridResultsProps) {
 			</div>
 
 			{/* Collapsible model + token stats */}
-			<div className="flex items-center px-4 py-1 border-t border-[--color-border]">
+			<div className="flex items-center px-4 py-1 border-t border-[var(--color-border)]">
 				<button
 					onClick={() => setShowStats((v) => !v)}
-					className="flex items-center gap-1 text-[10px] text-[--color-text-muted] hover:text-[--color-text] transition-colors"
+					className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
 					title={showStats ? "Hide details" : "Show details"}
 				>
 					<BarChart3 size={12} />
@@ -65,10 +65,10 @@ export function HybridResults({ result }: HybridResultsProps) {
 
 			{/* Anchors */}
 			{result.anchors.length > 0 && (
-				<div className="border-t border-[--color-border]">
+				<div className="border-t border-[var(--color-border)]">
 					<button
 						onClick={() => setAnchorsOpen((v) => !v)}
-						className="w-full flex items-center gap-2 px-4 py-2 text-xs text-[--color-text-muted] hover:text-[--color-text] transition-colors"
+						className="w-full flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
 					>
 						{anchorsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
 						{result.anchors.length} anchor{result.anchors.length !== 1 ? "s" : ""}
@@ -81,20 +81,20 @@ export function HybridResults({ result }: HybridResultsProps) {
 									<button
 										onClick={() => handleAnchorClick(anchor.nodeId)}
 										className={cn(
-											"w-full text-left px-4 py-2 border-b border-[--color-border]",
-											"hover:bg-[--color-surface-2] transition-colors",
+											"w-full text-left px-4 py-2 border-b border-[var(--color-border)]",
+											"hover:bg-[var(--color-surface-2)] transition-colors",
 										)}
 									>
 										<div className="flex items-center gap-2 mb-0.5">
 											<LabelBadge label={anchor.label} />
-											<span className="text-xs text-[--color-text] font-medium truncate">
+											<span className="text-xs text-[var(--color-text)] font-medium truncate">
 												{anchor.name}
 											</span>
-											<span className="ml-auto text-[10px] text-[--color-text-muted] font-mono shrink-0">
+											<span className="ml-auto text-[10px] text-[var(--color-text-muted)] font-mono shrink-0">
 												{(1 - anchor.distance).toFixed(2)}
 											</span>
 										</div>
-										<p className="text-[11px] text-[--color-text-muted] font-mono truncate">
+										<p className="text-[11px] text-[var(--color-text-muted)] font-mono truncate">
 											{anchor.filePath}:{anchor.startLine}
 										</p>
 									</button>

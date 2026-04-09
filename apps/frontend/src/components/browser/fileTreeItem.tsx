@@ -36,7 +36,7 @@ export function FileTreeItem({ node, depth }: FileTreeItemProps) {
 					style={{ paddingLeft: `${indentPx}px` }}
 					className={cn(
 						"w-full flex items-center gap-1.5 py-1 pr-4 text-xs",
-						"text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2]",
+						"text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]",
 						"transition-colors",
 					)}
 				>
@@ -81,16 +81,16 @@ export function FileTreeItem({ node, depth }: FileTreeItemProps) {
 				style={{ paddingLeft: `${indentPx}px` }}
 				className={cn(
 					"w-full flex items-center gap-1.5 py-1 pr-4 text-xs text-left",
-					"text-[--color-text-muted] transition-colors",
+					"text-[var(--color-text-muted)] transition-colors",
 					node.nodeId
-						? "hover:text-[--color-text] hover:bg-[--color-surface-2] cursor-pointer"
+						? "hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] cursor-pointer"
 						: "cursor-default",
 				)}
 			>
 				<FileCode size={13} className="shrink-0 text-blue-400/70" />
 				<span className="flex-1 truncate">{node.name}</span>
 				{node.language && (
-					<span className="text-[9px] text-[--color-text-muted] font-mono opacity-60">
+					<span className="text-[9px] text-[var(--color-text-muted)] font-mono opacity-60">
 						{languageIcon(node.language)}
 					</span>
 				)}

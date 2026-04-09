@@ -31,9 +31,9 @@ export function SidePanel() {
 	const hasEntity = useEntityStore((s) => s.selectedNodeId !== null);
 
 	return (
-		<aside className="flex flex-col h-full min-h-0 border-l border-[--color-border] bg-[--color-surface]">
+		<aside className="flex flex-col h-full min-h-0 border-l border-[var(--color-border)] bg-[var(--color-surface)]">
 			{/* Tabs */}
-			<div className="flex items-center border-b border-[--color-border] px-2">
+			<div className="flex items-center border-b border-[var(--color-border)] px-2">
 				{TABS.map((tab) => {
 					const showDot = tab.mode === "entity" && hasEntity;
 					return (
@@ -41,16 +41,16 @@ export function SidePanel() {
 							key={tab.mode}
 							onClick={() => setSidePanelMode(tab.mode)}
 							className={cn(
-								"relative flex flex-1 justify-center items-center gap-1.5 px-3 py-3 text-xs transition-colors border-b-2 focus:outline-none focus-visible:bg-[--color-surface-2]",
+								"relative flex flex-1 justify-center items-center gap-1.5 px-3 py-3 text-xs transition-colors border-b-2 focus:outline-none focus-visible:bg-[var(--color-surface-2)]",
 								sidePanelMode === tab.mode
-									? "border-[--color-accent] text-[--color-accent] bg-[--color-surface]"
-									: "border-transparent text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2]",
+									? "border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-surface)]"
+									: "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]",
 							)}
 						>
 							{tab.icon}
 							{tab.label}
 							{showDot && sidePanelMode !== tab.mode && (
-								<span className="absolute top-2 right-1 w-1.5 h-1.5 rounded-full bg-[--color-accent]" />
+								<span className="absolute top-2 right-1 w-1.5 h-1.5 rounded-full bg-[var(--color-accent)]" />
 							)}
 						</button>
 					);

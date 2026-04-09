@@ -9,7 +9,7 @@ interface ProgressProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 function fillColor(value: number, variant: ProgressProps["variant"]) {
-	if (variant === "accent") return "bg-[--color-accent]";
+	if (variant === "accent") return "bg-[var(--color-accent)]";
 	if (variant === "churn") {
 		// green → yellow → red
 		if (value < 0.33) return "bg-emerald-500";
@@ -32,7 +32,7 @@ export function Progress({ value, variant = "accent", className, ...props }: Pro
 			aria-valuemin={0}
 			aria-valuemax={100}
 			className={cn(
-				"h-1 rounded-full bg-[--color-border] overflow-hidden",
+				"h-1 rounded-full bg-[var(--color-border)] overflow-hidden",
 				className,
 			)}
 			{...props}

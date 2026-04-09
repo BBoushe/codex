@@ -42,7 +42,7 @@ export function SourceViewer({ sourceCode, language, startLine = 1 }: SourceView
 
 	if (!html) {
 		return (
-			<pre className="text-xs font-mono text-[--color-text-muted] overflow-x-auto p-4 leading-5">
+			<pre className="text-xs font-mono text-[var(--color-text-muted)] overflow-x-auto p-4 leading-5">
 				{sourceCode}
 			</pre>
 		);

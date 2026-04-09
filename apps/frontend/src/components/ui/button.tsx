@@ -6,8 +6,8 @@ const buttonVariants = cva(
 	[
 		"inline-flex items-center justify-center gap-1.5 font-medium",
 		"transition-all duration-200 cursor-pointer",
-		"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-accent]",
-		"focus-visible:ring-offset-1 focus-visible:ring-offset-[--color-background]",
+		"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]",
+		"focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-background)]",
 		"disabled:pointer-events-none disabled:opacity-50",
 		"active:scale-[0.97]",
 	].join(" "),
@@ -15,22 +15,22 @@ const buttonVariants = cva(
 		variants: {
 			variant: {
 				primary: [
-					"bg-[--color-accent] text-white border border-transparent",
+					"bg-[var(--color-accent)] text-white border border-transparent",
 					"shadow-(--shadow-xs) hover:shadow-(--shadow-sm)",
-					"hover:bg-[--color-accent-hover]",
+					"hover:bg-[var(--color-accent-hover)]",
 				].join(" "),
 				secondary: [
-					"bg-transparent text-[--color-text] border border-[--color-border]",
+					"bg-transparent text-[var(--color-text)] border border-[var(--color-border)]",
 					"shadow-(--shadow-xs) hover:shadow-(--shadow-sm)",
-					"hover:border-[--color-text-muted] hover:bg-[--color-surface-2]",
+					"hover:border-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]",
 				].join(" "),
 				ghost: [
-					"bg-transparent text-[--color-text-muted] border-none shadow-none",
-					"hover:text-[--color-text] hover:bg-[--color-surface-2]",
+					"bg-transparent text-[var(--color-text-muted)] border-none shadow-none",
+					"hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]",
 				].join(" "),
 				accent: [
-					"bg-transparent text-[--color-accent] border border-[--color-accent]/30",
-					"hover:bg-[--color-accent]/10 hover:border-[--color-accent]/50",
+					"bg-transparent text-[var(--color-accent)] border border-[var(--color-accent)]/30",
+					"hover:bg-[var(--color-accent)]/10 hover:border-[var(--color-accent)]/50",
 				].join(" "),
 				danger: [
 					"bg-red-500/10 text-red-400 border border-red-500/20",

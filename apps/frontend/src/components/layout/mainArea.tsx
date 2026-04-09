@@ -28,7 +28,7 @@ function LandingScreen() {
 
 	const cards: ActionCard[] = [
 		{
-			icon: <Network size={28} className="text-[--color-accent]" />,
+			icon: <Network size={28} className="text-[var(--color-accent)]" />,
 			title: "Search Codebase",
 			description: "Ask questions about your code using natural language",
 			onClick: () => setLeftPanelOpen(true),
@@ -54,13 +54,13 @@ function LandingScreen() {
 		<div className="flex flex-col items-center justify-center w-full h-full gap-10 text-center px-8 pb-24">
 			{/* Heading */}
 			<div className="flex flex-col items-center gap-2">
-				<div className="w-10 h-10 rounded-lg bg-[--color-accent]/15 flex items-center justify-center mb-1">
-					<Network size={20} className="text-[--color-accent]" />
+				<div className="w-10 h-10 rounded-lg bg-[var(--color-accent)]/15 flex items-center justify-center mb-1">
+					<Network size={20} className="text-[var(--color-accent)]" />
 				</div>
-				<h1 className="text-2xl font-bold text-[--color-text] tracking-tight">
+				<h1 className="text-2xl font-bold text-[var(--color-text)] tracking-tight">
 					CODEX
 				</h1>
-				<p className="text-sm text-[--color-text-muted] max-w-sm leading-relaxed">
+				<p className="text-sm text-[var(--color-text-muted)] max-w-sm leading-relaxed">
 					Codebase intelligence — search, explore and understand any repository.
 				</p>
 			</div>
@@ -73,21 +73,21 @@ function LandingScreen() {
 						onClick={card.onClick}
 						className={cn(
 							"flex-1 flex flex-col items-center gap-4 p-6 text-center",
-							"rounded-lg border border-[--color-border] bg-[--color-surface]",
+							"rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]",
 							"shadow-(--shadow-sm)",
-							"hover:shadow-(--shadow-md) hover:border-[--color-accent]/40 hover:bg-[--color-surface-2]",
+							"hover:shadow-(--shadow-md) hover:border-[var(--color-accent)]/40 hover:bg-[var(--color-surface-2)]",
 							"transition-all duration-200 cursor-pointer",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-accent]",
+							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]",
 						)}
 					>
-						<div className="p-2.5 rounded-lg bg-[--color-surface-2]">
+						<div className="p-2.5 rounded-lg bg-[var(--color-surface-2)]">
 							{card.icon}
 						</div>
 						<div>
-							<p className="text-sm font-semibold text-[--color-text] mb-1.5">
+							<p className="text-sm font-semibold text-[var(--color-text)] mb-1.5">
 								{card.title}
 							</p>
-							<p className="text-xs text-[--color-text-muted] leading-relaxed">
+							<p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
 								{card.description}
 							</p>
 						</div>
@@ -95,7 +95,7 @@ function LandingScreen() {
 				))}
 			</div>
 
-			<p className="text-xs text-[--color-text-subtle]">
+			<p className="text-xs text-[var(--color-text-subtle)]">
 				Use the search bar below or pick an option above to get started.
 			</p>
 		</div>
@@ -106,7 +106,7 @@ export function MainArea() {
 	const mainAreaMode = useUiStore((s) => s.mainAreaMode);
 
 	return (
-		<main className="relative w-full h-full min-h-0 overflow-hidden bg-[--color-background]">
+		<main className="relative w-full h-full min-h-0 overflow-hidden bg-[var(--color-background)]">
 			{mainAreaMode === "placeholder" && <LandingScreen />}
 			{mainAreaMode === "heb" && <HebContainer />}
 			{mainAreaMode === "force" && <ForceGraph />}

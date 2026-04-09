@@ -44,7 +44,7 @@ export function ShikiCodeBlock({ className, children }: ShikiCodeBlockProps) {
 
 	if (!isBlock) {
 		return (
-			<code className="bg-[--color-surface-2] px-1 py-0.5 rounded text-[11px] font-mono">
+			<code className="bg-[var(--color-surface-2)] px-1 py-0.5 rounded text-[11px] font-mono">
 				{children}
 			</code>
 		);
@@ -52,7 +52,7 @@ export function ShikiCodeBlock({ className, children }: ShikiCodeBlockProps) {
 
 	if (!html) {
 		return (
-			<pre className="bg-[--color-surface-2] rounded-lg p-3 text-xs font-mono overflow-x-auto leading-5">
+			<pre className="bg-[var(--color-surface-2)] rounded-lg p-3 text-xs font-mono overflow-x-auto leading-5">
 				<code>{code}</code>
 			</pre>
 		);

@@ -37,7 +37,7 @@ export function FileBrowser() {
 
 	if (isLoading) {
 		return (
-			<div className="flex items-center justify-center h-32 gap-2 text-sm text-[--color-text-muted]">
+			<div className="flex items-center justify-center h-32 gap-2 text-sm text-[var(--color-text-muted)]">
 				<Loader2 size={16} className="animate-spin" />
 				<span>Loading files…</span>
 			</div>
@@ -50,7 +50,7 @@ export function FileBrowser() {
 				<p className="text-sm text-red-400 mb-2">{error}</p>
 				<button
 					onClick={loadTree}
-					className="flex items-center gap-1 text-xs text-[--color-text-muted] hover:text-[--color-text]"
+					className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
 				>
 					<RefreshCw size={12} /> Retry
 				</button>
@@ -61,8 +61,8 @@ export function FileBrowser() {
 	if (!tree || tree.length === 0) {
 		return (
 			<div className="px-4 py-6 text-center">
-				<p className="text-sm text-[--color-text-muted]">No files found.</p>
-				<p className="text-xs text-[--color-text-muted] mt-1">Run codex ingest first.</p>
+				<p className="text-sm text-[var(--color-text-muted)]">No files found.</p>
+				<p className="text-xs text-[var(--color-text-muted)] mt-1">Run codex ingest first.</p>
 			</div>
 		);
 	}
@@ -70,12 +70,12 @@ export function FileBrowser() {
 	return (
 		<div className="py-2">
 			<div className="flex items-center justify-between px-4 pb-2">
-				<span className="text-[11px] font-medium text-[--color-text-muted] uppercase tracking-wider">
+				<span className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
 					Files
 				</span>
 				<button
 					onClick={loadTree}
-					className="text-[--color-text-muted] hover:text-[--color-text] transition-colors"
+					className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
 					title="Refresh"
 				>
 					<RefreshCw size={12} />

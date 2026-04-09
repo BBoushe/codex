@@ -50,8 +50,8 @@ export function NodeContextMenu({
 	}, [onClose]);
 
 	const itemClass = cn(
-		"w-full text-left px-3 py-1.5 text-xs text-[--color-text-muted]",
-		"hover:text-[--color-text] hover:bg-[--color-surface-2] transition-colors",
+		"w-full text-left px-3 py-1.5 text-xs text-[var(--color-text-muted)]",
+		"hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] transition-colors",
 		"disabled:opacity-40 disabled:cursor-not-allowed",
 	);
 
@@ -60,31 +60,40 @@ export function NodeContextMenu({
 			ref={menuRef}
 			style={{ left: x, top: y }}
 			className={cn(
-				"absolute z-9999 w-44 rounded-lg border border-[--color-border]",
-				"bg-[--color-surface] backdrop-blur-xl",
+				"absolute z-9999 w-44 rounded-lg border border-[var(--color-border)]",
+				"bg-[var(--color-surface)] backdrop-blur-xl",
 				"shadow-xl py-1 flex flex-col",
 			)}
 		>
-			<p className="px-3 py-1 text-[10px] text-[--color-text-muted] font-mono truncate border-b border-[--color-border] mb-1">
+			<p className="px-3 py-1 text-[10px] text-[var(--color-text-muted)] font-mono truncate border-b border-[var(--color-border)] mb-1">
 				{nodeName}
 			</p>
 			<button
 				className={itemClass}
-				onClick={() => { onExpand(); onClose(); }}
+				onClick={() => {
+					onExpand();
+					onClose();
+				}}
 				disabled={isExpanded}
 			>
 				Expand neighbors
 			</button>
 			<button
 				className={itemClass}
-				onClick={() => { onRecenter(); onClose(); }}
+				onClick={() => {
+					onRecenter();
+					onClose();
+				}}
 			>
 				Recenter here
 			</button>
-			<div className="border-t border-[--color-border] my-1" />
+			<div className="border-t border-[var(--color-border)] my-1" />
 			<button
 				className={itemClass}
-				onClick={() => { onViewDetails(); onClose(); }}
+				onClick={() => {
+					onViewDetails();
+					onClose();
+				}}
 			>
 				View details
 			</button>

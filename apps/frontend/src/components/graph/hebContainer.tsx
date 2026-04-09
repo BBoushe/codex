@@ -114,7 +114,7 @@ export function HebContainer() {
 
 	if (isLoading) {
 		return (
-			<div className="flex items-center justify-center h-full gap-2 text-sm text-[--color-text-muted]">
+			<div className="flex items-center justify-center h-full gap-2 text-sm text-[var(--color-text-muted)]">
 				<Loader2 size={16} className="animate-spin" />
 				<span>Loading graph…</span>
 			</div>

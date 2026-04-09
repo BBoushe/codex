@@ -37,22 +37,22 @@ export function HebTooltip() {
 		<div
 			className={cn(
 				"absolute bottom-3 left-3 pointer-events-none",
-				"rounded-lg border border-[--color-border] bg-[--color-surface]/95 backdrop-blur-sm",
+				"rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-sm",
 				"px-3 py-2 text-xs max-w-xs",
 			)}
 		>
 			<div className="flex items-center gap-2 mb-1">
 				<LabelBadge label={labelMap[node.type] ?? node.type} />
-				<span className="text-[--color-text] font-medium truncate">{node.name}</span>
+				<span className="text-[var(--color-text)] font-medium truncate">{node.name}</span>
 			</div>
-			<p className="text-[11px] text-[--color-text-muted] font-mono">{node.module}</p>
+			<p className="text-[11px] text-[var(--color-text-muted)] font-mono">{node.module}</p>
 			{node.churnRate !== undefined && (
-				<p className="text-[10px] text-[--color-text-muted] mt-0.5">
+				<p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
 					churn: {formatChurnRate(node.churnRate)}
 				</p>
 			)}
 			{node.doaScore !== undefined && (
-				<p className="text-[10px] text-[--color-text-muted]">
+				<p className="text-[10px] text-[var(--color-text-muted)]">
 					DOA: {formatDoa(node.doaScore)}
 				</p>
 			)}

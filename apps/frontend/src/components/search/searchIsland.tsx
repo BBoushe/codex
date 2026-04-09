@@ -67,8 +67,8 @@ export function SearchIsland() {
 				onSubmit={handleSubmit}
 				className={cn(
 					"flex items-center gap-2 px-4 py-3 rounded-2xl",
-					"border border-[--color-border]",
-					"bg-[--color-surface]/90 backdrop-blur-xl",
+					"border border-[var(--color-border)]",
+					"bg-[var(--color-surface)]/90 backdrop-blur-xl",
 					"shadow-2xl shadow-black/40",
 				)}
 			>
@@ -77,7 +77,7 @@ export function SearchIsland() {
 					<Popover.Trigger asChild>
 						<button
 							type="button"
-							className="shrink-0 p-1.5 rounded-md text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2] focus:outline-none focus:ring-2 focus:ring-[--color-accent] transition-all"
+							className="shrink-0 p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-all"
 							title="Search settings"
 						>
 							<Settings2 size={16} />
@@ -90,14 +90,14 @@ export function SearchIsland() {
 							align="start"
 							sideOffset={12}
 							className={cn(
-								"z-50 w-72 rounded-xl border border-[--color-border]",
+								"z-50 w-72 rounded-xl border border-[var(--color-border)]",
 								"p-4 shadow-xl flex flex-col gap-4",
 							)}
 							style={{ background: "var(--color-surface)" }}
 						>
 							{/* Provider */}
 							<div>
-								<p className="text-[11px] font-medium text-[--color-text-muted] uppercase tracking-wider mb-2">
+								<p className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
 									Provider
 								</p>
 								<div className="grid grid-cols-2 gap-1">
@@ -107,10 +107,10 @@ export function SearchIsland() {
 											type="button"
 											onClick={() => setProvider(p.value)}
 											className={cn(
-												"px-2 py-1.5 rounded-md text-xs transition-all text-left focus:outline-none focus:ring-2 focus:ring-[--color-accent]",
+												"px-2 py-1.5 rounded-md text-xs transition-all text-left focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]",
 												provider === p.value
-													? "bg-[--color-accent] text-white shadow-sm"
-													: "text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2] border border-[--color-border]",
+													? "bg-[var(--color-accent)] text-white shadow-sm"
+													: "text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] border border-[var(--color-border)]",
 											)}
 										>
 											{p.label}
@@ -121,7 +121,7 @@ export function SearchIsland() {
 
 							{/* Context budget */}
 							<div>
-								<p className="text-[11px] font-medium text-[--color-text-muted] uppercase tracking-wider mb-2">
+								<p className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
 									Context Budget
 								</p>
 								<div className="flex flex-col gap-1">
@@ -131,10 +131,10 @@ export function SearchIsland() {
 											type="button"
 											onClick={() => setBudget(b.value)}
 											className={cn(
-												"flex items-center justify-between px-3 py-2 rounded-md text-xs transition-all focus:outline-none focus:ring-2 focus:ring-[--color-accent]",
+												"flex items-center justify-between px-3 py-2 rounded-md text-xs transition-all focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]",
 												budget === b.value
-													? "bg-[--color-accent] text-white shadow-sm"
-													: "text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2] border border-[--color-border]",
+													? "bg-[var(--color-accent)] text-white shadow-sm"
+													: "text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] border border-[var(--color-border)]",
 											)}
 										>
 											<span>{b.label}</span>
@@ -146,14 +146,14 @@ export function SearchIsland() {
 
 							{/* Model */}
 							<div>
-								<p className="text-[11px] font-medium text-[--color-text-muted] uppercase tracking-wider mb-2">
+								<p className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
 									Model
 								</p>
 								{availableModels.length > 0 && (
 									<select
 										value={model}
 										onChange={(e) => setModel(e.target.value)}
-										className="w-full py-1.5 px-2 rounded-md text-xs bg-[--color-surface-2] border border-[--color-border] text-[--color-text] outline-none focus:ring-2 focus:ring-[--color-accent] mb-2"
+										className="w-full py-1.5 px-2 rounded-md text-xs bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text)] outline-none focus:ring-2 focus:ring-[var(--color-accent)] mb-2"
 									>
 										<option value="">
 											Default{activeModel ? ` (${activeModel.split("/").pop()})` : ""}
@@ -170,11 +170,11 @@ export function SearchIsland() {
 									value={model}
 									onChange={(e) => setModel(e.target.value)}
 									placeholder="Custom model ID…"
-									className="w-full px-3 py-1.5 rounded-md text-xs bg-[--color-surface-2] border border-[--color-border] text-[--color-text] placeholder:text-[--color-text-muted] outline-none focus:ring-2 focus:ring-[--color-accent]"
+									className="w-full px-3 py-1.5 rounded-md text-xs bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
 								/>
 							</div>
 
-							<Popover.Arrow className="fill-[--color-border]" />
+							<Popover.Arrow className="fill-[var(--color-border)]" />
 						</Popover.Content>
 					</Popover.Portal>
 				</Popover.Root>
@@ -189,8 +189,8 @@ export function SearchIsland() {
 					placeholder="Ask about your codebase…"
 					disabled={isLoading}
 					className={cn(
-						"flex-1 bg-transparent outline-none text-sm text-[--color-text]",
-						"placeholder:text-[--color-text-muted]",
+						"flex-1 bg-transparent outline-none text-sm text-[var(--color-text)]",
+						"placeholder:text-[var(--color-text-muted)]",
 						"disabled:opacity-60",
 					)}
 				/>
@@ -200,10 +200,10 @@ export function SearchIsland() {
 					type="submit"
 					disabled={!localQuery.trim() || isLoading}
 					className={cn(
-						"shrink-0 flex items-center justify-center w-7 h-7 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-[--color-accent] focus:ring-offset-1 focus:ring-offset-[--color-surface]",
+						"shrink-0 flex items-center justify-center w-7 h-7 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-1 focus:ring-offset-[var(--color-surface)]",
 						localQuery.trim() && !isLoading
-							? "bg-[--color-accent] text-white hover:bg-[--color-accent-hover] shadow-sm transform hover:scale-105 active:scale-95"
-							: "text-[--color-text-muted] bg-[--color-surface-2] opacity-50 cursor-not-allowed",
+							? "bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] shadow-sm transform hover:scale-105 active:scale-95"
+							: "text-[var(--color-text-muted)] bg-[var(--color-surface-2)] opacity-50 cursor-not-allowed",
 					)}
 				>
 					{isLoading ? (

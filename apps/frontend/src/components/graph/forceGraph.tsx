@@ -6,9 +6,13 @@
  * expanded or recentered via a right-click context menu.
  */
 
-import { useRef, useState, useMemo, useCallback, useEffect, useLayoutEffect } from "react"; // useLayoutEffect: cluster force must run before paint
+import { useRef, useState, useMemo, useCallback, useLayoutEffect } from "react"; // useLayoutEffect: cluster force must run before paint
 import ForceGraph2D from "react-force-graph-2d";
-import type { ForceGraphMethods, NodeObject, LinkObject } from "react-force-graph-2d";
+import type {
+	ForceGraphMethods,
+	NodeObject,
+	LinkObject,
+} from "react-force-graph-2d";
 import { useForceStore } from "@/stores/forceStore";
 import { useEntityStore } from "@/stores/entityStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -30,17 +34,23 @@ function crossProduct(O: Point, A: Point, B: Point): number {
 /** Graham scan — returns points of the convex hull in CCW order. */
 function computeHull(pts: Point[]): Point[] {
 	if (pts.length < 3) return [...pts];
-	const sorted = [...pts].sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
+	const sorted = [...pts].sort((a, b) => (a.x !== b.x ? a.x - b.x : a.y - b.y));
 	const lower: Point[] = [];
 	for (const p of sorted) {
-		while (lower.length >= 2 && crossProduct(lower[lower.length - 2]!, lower[lower.length - 1]!, p) <= 0)
+		while (
+			lower.length >= 2 &&
+			crossProduct(lower[lower.length - 2]!, lower[lower.length - 1]!, p) <= 0
+		)
 			lower.pop();
 		lower.push(p);
 	}
 	const upper: Point[] = [];
 	for (let i = sorted.length - 1; i >= 0; i--) {
 		const p = sorted[i]!;
-		while (upper.length >= 2 && crossProduct(upper[upper.length - 2]!, upper[upper.length - 1]!, p) <= 0)
+		while (
+			upper.length >= 2 &&
+			crossProduct(upper[upper.length - 2]!, upper[upper.length - 1]!, p) <= 0
+		)
 			upper.pop();
 		upper.push(p);
 	}
@@ -62,14 +72,14 @@ function expandHull(hull: Point[], pad: number): Point[] {
 }
 
 const GROUP_HULL_COLORS = [
-	"99,102,241",  // indigo
-	"16,185,129",  // emerald
-	"245,158,11",  // amber
-	"239,68,68",   // red
-	"59,130,246",  // blue
-	"168,85,247",  // purple
-	"236,72,153",  // pink
-	"20,184,166",  // teal
+	"99,102,241", // indigo
+	"16,185,129", // emerald
+	"245,158,11", // amber
+	"239,68,68", // red
+	"59,130,246", // blue
+	"168,85,247", // purple
+	"236,72,153", // pink
+	"20,184,166", // teal
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +120,7 @@ interface ContextMenuState {
 export function ForceGraph() {
 	const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
 	const containerRef = useRef<HTMLDivElement>(null);
-	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+	const [dimensions, setDimensions] = useState({ width: 1, height: 1 });
 	const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 	const [showHint, setShowHint] = useState(true);
 
@@ -129,22 +139,54 @@ export function ForceGraph() {
 
 	const selectEntity = useEntityStore((s) => s.selectEntity);
 	const setSidePanelMode = useUiStore((s) => s.setSidePanelMode);
+	const themeMode = useUiStore((s) => s.themeMode);
+	const leftPanelOpen = useUiStore((s) => s.leftPanelOpen);
 
 	// Track container dimensions
-	useEffect(() => {
-		if (!containerRef.current) return;
+	useLayoutEffect(() => {
+		const host = containerRef.current;
+		if (!host) return;
+
+		const measure = () => {
+			const parent = host.parentElement;
+			const rect = (parent ?? host).getBoundingClientRect();
+			const width = Math.max(1, Math.round(rect.width));
+			const height = Math.max(1, Math.round(rect.height));
+			setDimensions({ width, height });
+		};
+
+		// Keep the canvas synced to grid/panel transitions and first paint.
+		measure();
+		const raf = requestAnimationFrame(measure);
+		const transitionTimer = window.setTimeout(measure, 320);
+
 		const ro = new ResizeObserver((entries) => {
-			const entry = entries[0];
-			if (entry) {
-				setDimensions({
-					width: entry.contentRect.width,
-					height: entry.contentRect.height,
-				});
-			}
+			if (entries.length > 0) measure();
 		});
-		ro.observe(containerRef.current);
-		return () => ro.disconnect();
-	}, []);
+		ro.observe(host);
+		if (host.parentElement) ro.observe(host.parentElement);
+
+		window.addEventListener("resize", measure);
+		return () => {
+			cancelAnimationFrame(raf);
+			window.clearTimeout(transitionTimer);
+			window.removeEventListener("resize", measure);
+			ro.disconnect();
+		};
+	}, [leftPanelOpen]);
+
+	const canvasBackground = (() => {
+		const container = containerRef.current;
+		if (container) {
+			const cssVar = getComputedStyle(container)
+				.getPropertyValue("--color-background")
+				.trim();
+			if (cssVar) return cssVar;
+		}
+
+		// Fallback if CSS vars are unavailable at initial render.
+		return themeMode === "light" ? "#fafafa" : "#0f1117";
+	})();
 
 	// Filter and shape data for the graph
 	const graphData = useMemo(() => {
@@ -152,8 +194,7 @@ export function ForceGraph() {
 
 		const nodes = subgraphData.nodes.filter(
 			(n) =>
-				(showDevelopers || !n.isDeveloper) &&
-				(showFiles || n.label !== "File"),
+				(showDevelopers || !n.isDeveloper) && (showFiles || n.label !== "File"),
 		) as ForceGraphNode[];
 
 		const visibleIds = new Set(nodes.map((n) => n.nodeId));
@@ -165,7 +206,11 @@ export function ForceGraph() {
 	}, [subgraphData, showDevelopers, showFiles]);
 
 	// ── Cluster targets (one fixed position per group — directory or label) ──
-	const activeGrouping = groupByDirectory ? "directory" : groupByLabel ? "label" : null;
+	const activeGrouping = groupByDirectory
+		? "directory"
+		: groupByLabel
+			? "label"
+			: null;
 
 	/** Returns the group key for a node based on the active grouping mode. */
 	function nodeGroupKey(n: ForceGraphNode): string {
@@ -176,17 +221,24 @@ export function ForceGraph() {
 
 	const clusterTargets = useMemo<Map<string, Point>>(() => {
 		if (!activeGrouping) return new Map();
-		const keys = [...new Set(
-			(graphData.nodes as ForceGraphNode[]).map((n) => nodeGroupKey(n)).filter(Boolean),
-		)];
-		const R = Math.max(150, Math.min(320, 45 * Math.sqrt(graphData.nodes.length)));
+		const keys = [
+			...new Set(
+				(graphData.nodes as ForceGraphNode[])
+					.map((n) => nodeGroupKey(n))
+					.filter(Boolean),
+			),
+		];
+		const R = Math.max(
+			150,
+			Math.min(320, 45 * Math.sqrt(graphData.nodes.length)),
+		);
 		const targets = new Map<string, Point>();
 		keys.forEach((key, i) => {
 			const angle = (2 * Math.PI * i) / keys.length - Math.PI / 2;
 			targets.set(key, { x: Math.cos(angle) * R, y: Math.sin(angle) * R });
 		});
 		return targets;
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [activeGrouping, graphData.nodes]);
 
 	// ── Add / remove D3 cluster force when grouping or data changes ──
@@ -204,7 +256,13 @@ export function ForceGraph() {
 			nodeGroup.set(n.nodeId, nodeGroupKey(n));
 		}
 
-		type SimNode = { nodeId?: string; x?: number; y?: number; vx?: number; vy?: number };
+		type SimNode = {
+			nodeId?: string;
+			x?: number;
+			y?: number;
+			vx?: number;
+			vy?: number;
+		};
 		let simNodes: SimNode[] = [];
 
 		function clusterForce(alpha: number) {
@@ -217,12 +275,17 @@ export function ForceGraph() {
 				n.vy = (n.vy ?? 0) + (target.y - (n.y ?? 0)) * 0.06 * alpha;
 			}
 		}
-		(clusterForce as typeof clusterForce & { initialize: (ns: SimNode[]) => void }).initialize =
-			(ns) => { simNodes = ns; };
+		(
+			clusterForce as typeof clusterForce & {
+				initialize: (ns: SimNode[]) => void;
+			}
+		).initialize = (ns) => {
+			simNodes = ns;
+		};
 
 		fg.d3Force("cluster", clusterForce);
 		fg.d3ReheatSimulation();
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [activeGrouping, clusterTargets, graphData.nodes]);
 
 	// ── Convex hull overlay (drawn before nodes so hulls sit behind) ─────────
@@ -256,19 +319,24 @@ export function ForceGraph() {
 					ctx.lineWidth = 1.2;
 					ctx.stroke();
 				} else {
-					const hull = pts.length === 2
-						? [
-							{ x: pts[0]!.x - 20, y: pts[0]!.y },
-							{ x: pts[1]!.x - 20, y: pts[1]!.y },
-							{ x: pts[1]!.x + 20, y: pts[1]!.y },
-							{ x: pts[0]!.x + 20, y: pts[0]!.y },
-						  ]
-						: computeHull(pts);
-					if (hull.length < 2) { ctx.restore(); return; }
+					const hull =
+						pts.length === 2
+							? [
+									{ x: pts[0]!.x - 20, y: pts[0]!.y },
+									{ x: pts[1]!.x - 20, y: pts[1]!.y },
+									{ x: pts[1]!.x + 20, y: pts[1]!.y },
+									{ x: pts[0]!.x + 20, y: pts[0]!.y },
+								]
+							: computeHull(pts);
+					if (hull.length < 2) {
+						ctx.restore();
+						return;
+					}
 					const padded = expandHull(hull, 26);
 					ctx.beginPath();
 					ctx.moveTo(padded[0]!.x, padded[0]!.y);
-					for (let i = 1; i < padded.length; i++) ctx.lineTo(padded[i]!.x, padded[i]!.y);
+					for (let i = 1; i < padded.length; i++)
+						ctx.lineTo(padded[i]!.x, padded[i]!.y);
 					ctx.closePath();
 					ctx.fillStyle = `rgba(${rgb},0.07)`;
 					ctx.fill();
@@ -321,7 +389,8 @@ export function ForceGraph() {
 			ctx.fill();
 
 			// Label (always shown for center node, otherwise only when zoomed in)
-			const showLabel = globalScale > 1.2 || subgraphData?.centerNodeId === n.nodeId;
+			const showLabel =
+				globalScale > 1.2 || subgraphData?.centerNodeId === n.nodeId;
 			if (showLabel) {
 				const label = n.name.length > 20 ? `${n.name.slice(0, 20)}…` : n.name;
 				const fontSize = Math.max(11 / globalScale, 5);
@@ -339,7 +408,11 @@ export function ForceGraph() {
 	const linkCanvasObject = useCallback(
 		(link: LinkObject, ctx: CanvasRenderingContext2D, globalScale: number) => {
 			if (globalScale < 1.2) return;
-			const l = link as { source: NodeObject; target: NodeObject; type: string };
+			const l = link as {
+				source: NodeObject;
+				target: NodeObject;
+				type: string;
+			};
 			const sx = l.source.x ?? 0;
 			const sy = l.source.y ?? 0;
 			const tx = l.target.x ?? 0;
@@ -394,7 +467,11 @@ export function ForceGraph() {
 		const centerNode = graphData.nodes.find(
 			(n) => (n as ForceGraphNode).nodeId === subgraphData.centerNodeId,
 		);
-		if (centerNode && centerNode.x !== undefined && centerNode.y !== undefined) {
+		if (
+			centerNode &&
+			centerNode.x !== undefined &&
+			centerNode.y !== undefined
+		) {
 			fg.centerAt(centerNode.x, centerNode.y, 600);
 			fg.zoom(2, 600);
 		} else {
@@ -405,52 +482,58 @@ export function ForceGraph() {
 	if (!subgraphData) {
 		return (
 			<div className="flex flex-col items-center justify-center h-full gap-2 text-center px-8">
-				<p className="text-sm text-[--color-text-muted]">
-					Select an entity and click <strong className="text-[--color-text]">Explore</strong> to visualize its neighborhood.
+				<p className="text-sm text-[var(--color-text-muted)]">
+					Select an entity and click{" "}
+					<strong className="text-[var(--color-text)]">Explore</strong> to
+					visualize its neighborhood.
 				</p>
 			</div>
 		);
 	}
 
 	return (
-		<div ref={containerRef} className="relative w-full h-full">
-			<ForceGraph2D
-				ref={fgRef as React.MutableRefObject<ForceGraphMethods | undefined>}
-				width={dimensions.width}
-				height={dimensions.height}
-				graphData={graphData}
-				nodeId="nodeId"
-				linkSource="source"
-				linkTarget="target"
-				backgroundColor={
-					containerRef.current
-						? getComputedStyle(containerRef.current).getPropertyValue("--color-background").trim() || "#0f1117"
-						: "#0f1117"
-				}
-				nodeCanvasObject={nodeCanvasObject}
-				nodeCanvasObjectMode={() => "replace"}
-				nodePointerAreaPaint={(node, color, ctx) => {
-					const n = node as ForceGraphNode;
-					const r = nodeRadius(n, sizingMetric) + 4;
-					ctx.beginPath();
-					ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI);
-					ctx.fillStyle = color;
-					ctx.fill();
-				}}
-				linkColor={(link) => EDGE_TYPE_COLORS[(link as { type: string }).type] ?? EDGE_TYPE_COLORS["default"]!}
-				linkDirectionalArrowLength={5}
-				linkDirectionalArrowRelPos={1}
-				linkWidth={1.5}
-				linkCanvasObject={linkCanvasObject}
-				linkCanvasObjectMode={() => "after"}
-				onNodeClick={handleNodeClick}
-				onNodeRightClick={handleNodeRightClick}
-				onBackgroundClick={handleBackgroundClick}
-				onBackgroundRightClick={handleBackgroundClick}
-				onRenderFramePre={renderHulls}
-				cooldownTicks={80}
-				onEngineStop={handleEngineStop}
-			/>
+		<div
+			ref={containerRef}
+			className="absolute inset-0 min-w-0 min-h-0 overflow-hidden"
+		>
+			<div className="absolute inset-0 z-0">
+				<ForceGraph2D
+					ref={fgRef as React.MutableRefObject<ForceGraphMethods | undefined>}
+					width={dimensions.width}
+					height={dimensions.height}
+					graphData={graphData}
+					nodeId="nodeId"
+					linkSource="source"
+					linkTarget="target"
+					backgroundColor={canvasBackground}
+					nodeCanvasObject={nodeCanvasObject}
+					nodeCanvasObjectMode={() => "replace"}
+					nodePointerAreaPaint={(node, color, ctx) => {
+						const n = node as ForceGraphNode;
+						const r = nodeRadius(n, sizingMetric) + 4;
+						ctx.beginPath();
+						ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI);
+						ctx.fillStyle = color;
+						ctx.fill();
+					}}
+					linkColor={(link) =>
+						EDGE_TYPE_COLORS[(link as { type: string }).type] ??
+						EDGE_TYPE_COLORS["default"]!
+					}
+					linkDirectionalArrowLength={5}
+					linkDirectionalArrowRelPos={1}
+					linkWidth={1.5}
+					linkCanvasObject={linkCanvasObject}
+					linkCanvasObjectMode={() => "after"}
+					onNodeClick={handleNodeClick}
+					onNodeRightClick={handleNodeRightClick}
+					onBackgroundClick={handleBackgroundClick}
+					onBackgroundRightClick={handleBackgroundClick}
+					onRenderFramePre={renderHulls}
+					cooldownTicks={80}
+					onEngineStop={handleEngineStop}
+				/>
+			</div>
 
 			<ForceControls
 				fgRef={fgRef as React.MutableRefObject<ForceGraphMethods | undefined>}
@@ -459,20 +542,25 @@ export function ForceGraph() {
 
 			{/* Hint overlay */}
 			{showHint ? (
-				<div className="absolute bottom-3 left-3 max-w-sm rounded-lg border border-[--color-border] bg-[--color-surface]/90 backdrop-blur-sm px-4 py-3 text-sm text-[--color-text-muted]">
+				<div className="absolute z-20 bottom-3 left-3 max-w-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur-sm px-4 py-3 text-sm text-[var(--color-text-muted)]">
 					<div className="flex items-start justify-between gap-3">
 						<span>
-							Showing <strong className="text-[--color-text]">{graphData.nodes.length}</strong> nodes around{" "}
-							<strong className="text-[--color-text]">
+							Showing{" "}
+							<strong className="text-[var(--color-text)]">
+								{graphData.nodes.length}
+							</strong>{" "}
+							nodes around{" "}
+							<strong className="text-[var(--color-text)]">
 								{graphData.nodes.find(
-									(n) => (n as ForceGraphNode).nodeId === subgraphData.centerNodeId,
+									(n) =>
+										(n as ForceGraphNode).nodeId === subgraphData.centerNodeId,
 								)?.name ?? "center"}
-							</strong>.
-							Left-click: details · Right-click: expand / recenter
+							</strong>
+							. Left-click: details · Right-click: expand / recenter
 						</span>
 						<button
 							onClick={() => setShowHint(false)}
-							className="shrink-0 text-[--color-text-muted] hover:text-[--color-text] transition-colors leading-none"
+							className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors leading-none"
 						>
 							✕
 						</button>
@@ -481,7 +569,7 @@ export function ForceGraph() {
 			) : (
 				<button
 					onClick={() => setShowHint(true)}
-					className="absolute bottom-3 left-3 w-7 h-7 rounded-full border border-[--color-border] bg-[--color-surface]/90 backdrop-blur-sm text-[--color-text-muted] hover:text-[--color-text] flex items-center justify-center text-xs font-medium transition-colors"
+					className="absolute z-20 bottom-3 left-3 w-7 h-7 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] flex items-center justify-center text-xs font-medium transition-colors"
 					title="Show hints"
 				>
 					?
@@ -495,8 +583,14 @@ export function ForceGraph() {
 					nodeId={contextMenu.nodeId}
 					nodeName={contextMenu.nodeName}
 					isExpanded={expandedNodeIds.has(contextMenu.nodeId)}
-					onExpand={() => { expandNode(contextMenu.nodeId); setShowHint(false); }}
-					onRecenter={() => { recenterOn(contextMenu.nodeId); setShowHint(true); }}
+					onExpand={() => {
+						expandNode(contextMenu.nodeId);
+						setShowHint(false);
+					}}
+					onRecenter={() => {
+						recenterOn(contextMenu.nodeId);
+						setShowHint(true);
+					}}
 					onViewDetails={() => {
 						selectEntity(contextMenu.nodeId);
 						setSidePanelMode("entity");

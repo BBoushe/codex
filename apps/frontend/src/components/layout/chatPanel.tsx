@@ -36,7 +36,7 @@ function HistoryList({ onSelect }: { onSelect: () => void }) {
 
 	if (history.length === 0) {
 		return (
-			<div className="flex items-center justify-center h-32 text-sm text-[--color-text-muted]">
+			<div className="flex items-center justify-center h-32 text-sm text-[var(--color-text-muted)]">
 				No history yet.
 			</div>
 		);
@@ -74,21 +74,21 @@ function HistoryList({ onSelect }: { onSelect: () => void }) {
 	return (
 		<ul className="py-1">
 			{history.map((entry) => (
-				<li key={entry.id} className="group relative border-b border-[--color-border]">
+				<li key={entry.id} className="group relative border-b border-[var(--color-border)]">
 					<button
 						onClick={() => handleClick(entry)}
-						className="w-full text-left px-4 py-2.5 pr-10 hover:bg-[--color-surface-2] transition-colors"
+						className="w-full text-left px-4 py-2.5 pr-10 hover:bg-[var(--color-surface-2)] transition-colors"
 					>
 						<div className="flex items-center gap-2 mb-0.5">
 							{kindBadge(entry.result.kind)}
-							<span className="text-[10px] text-[--color-text-muted] ml-auto">
+							<span className="text-[10px] text-[var(--color-text-muted)] ml-auto">
 								{formatTime(entry.timestamp)}
 							</span>
 						</div>
-						<p className="text-xs text-[--color-text] truncate mb-0.5">
+						<p className="text-xs text-[var(--color-text)] truncate mb-0.5">
 							{entry.query}
 						</p>
-						<p className="text-[11px] text-[--color-text-muted] truncate">
+						<p className="text-[11px] text-[var(--color-text-muted)] truncate">
 							{answerPreview(entry.result)}
 						</p>
 					</button>
@@ -96,7 +96,7 @@ function HistoryList({ onSelect }: { onSelect: () => void }) {
 						onClick={(e) => { e.stopPropagation(); removeHistoryEntry(entry.id); }}
 						className={cn(
 							"absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all",
-							"text-[--color-text-muted] hover:text-red-400 hover:bg-[--color-surface-2]",
+							"text-[var(--color-text-muted)] hover:text-red-400 hover:bg-[var(--color-surface-2)]",
 							"opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none",
 						)}
 						title="Delete entry"
@@ -118,43 +118,43 @@ export function ChatPanel() {
 	return (
 		<aside
 			className={cn(
-				"flex flex-col h-full border-r border-[--color-border] bg-[--color-surface]",
+				"flex flex-col h-full border-r border-[var(--color-border)] bg-[var(--color-surface)]",
 				"transition-all duration-300 overflow-hidden min-h-0",
 				leftPanelOpen ? "w-96" : "w-0",
 			)}
 		>
 			{/* Header */}
-			<div className="flex items-center border-b border-[--color-border] px-3 shrink-0">
+			<div className="flex items-center border-b border-[var(--color-border)] px-3 shrink-0">
 				{/* Tabs */}
 				<button
 					onClick={() => setActiveTab("results")}
 					className={cn(
-						"relative flex flex-1 justify-center items-center gap-1.5 px-2 py-3 text-xs transition-colors border-b-2 focus:outline-none focus-visible:bg-[--color-surface-2]",
+						"relative flex flex-1 justify-center items-center gap-1.5 px-2 py-3 text-xs transition-colors border-b-2 focus:outline-none focus-visible:bg-[var(--color-surface-2)]",
 						activeTab === "results"
-							? "border-[--color-accent] text-[--color-accent] bg-[--color-surface]"
-							: "border-transparent text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2]",
+							? "border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-surface)]"
+							: "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]",
 					)}
 				>
 					<MessageSquare size={12} />
 					Results
 					{result && activeTab !== "results" && (
-						<span className="absolute top-2 right-0 w-1.5 h-1.5 rounded-full bg-[--color-accent]" />
+						<span className="absolute top-2 right-0 w-1.5 h-1.5 rounded-full bg-[var(--color-accent)]" />
 					)}
 				</button>
 
 				<button
 					onClick={() => setActiveTab("history")}
 					className={cn(
-						"relative flex flex-1 justify-center items-center gap-1.5 px-2 py-3 text-xs transition-colors border-b-2 focus:outline-none focus-visible:bg-[--color-surface-2]",
+						"relative flex flex-1 justify-center items-center gap-1.5 px-2 py-3 text-xs transition-colors border-b-2 focus:outline-none focus-visible:bg-[var(--color-surface-2)]",
 						activeTab === "history"
-							? "border-[--color-accent] text-[--color-accent] bg-[--color-surface]"
-							: "border-transparent text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2]",
+							? "border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-surface)]"
+							: "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]",
 					)}
 				>
 					<Clock size={12} />
 					History
 					{historyCount > 0 && (
-						<span className="ml-0.5 text-[9px] text-[--color-text-muted]">
+						<span className="ml-0.5 text-[9px] text-[var(--color-text-muted)]">
 							{historyCount}
 						</span>
 					)}
@@ -163,7 +163,7 @@ export function ChatPanel() {
 				{/* Close */}
 				<button
 					onClick={toggleLeftPanel}
-					className="ml-auto text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2] rounded-md transition-all p-1.5 focus:outline-none focus:ring-2 focus:ring-[--color-accent]"
+					className="ml-auto text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] rounded-md transition-all p-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
 				>
 					<X size={14} />
 				</button>

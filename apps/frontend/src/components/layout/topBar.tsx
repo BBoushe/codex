@@ -10,9 +10,9 @@ import {
 	GitBranch,
 	Network,
 	Share2,
-	MessageSquare,
-	Sun,
-	Moon,
+	MessageCircle,
+	SunMedium,
+	MoonStar,
 } from "lucide-react";
 import {
 	useUiStore,
@@ -44,10 +44,10 @@ function ViewToggle({ mode, label, icon }: ViewToggleProps) {
 		<button
 			onClick={handleClick}
 			className={cn(
-				"flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-[--color-accent]",
+				"flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-accent",
 				mainAreaMode === mode
-					? "bg-[--color-surface-2] text-[--color-accent] shadow-sm"
-					: "text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2]/50",
+					? "bg-surface-2 text-accent shadow-sm"
+					: "text-text-muted hover:text-text hover:bg-surface-2/50",
 			)}
 			title={label}
 		>
@@ -78,10 +78,14 @@ function ThemeToggle() {
 	return (
 		<button
 			onClick={() => setThemeMode(next)}
-			className="flex items-center justify-center w-8 h-8 rounded-md text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2] focus:ring-2 focus:ring-[--color-accent] focus:outline-none transition-all"
+			className="flex items-center justify-center w-8 h-8 p-0 gap-0 leading-none rounded-md text-text-muted hover:text-text hover:bg-surface-2 focus:ring-2 focus:ring-accent focus:outline-none transition-all [&>svg]:shrink-0"
 			title={`Theme: ${themeMode} → ${next}`}
 		>
-			{isDark ? <Moon size={16} /> : <Sun size={16} />}
+			{isDark ? (
+				<MoonStar size={16} strokeWidth={2.5} />
+			) : (
+				<SunMedium size={16} strokeWidth={2.5} />
+			)}
 		</button>
 	);
 }
@@ -90,25 +94,25 @@ export function TopBar() {
 	const { leftPanelOpen, toggleLeftPanel } = useUiStore();
 
 	return (
-		<header className="flex items-center gap-3 px-4 h-full border-b border-[--color-border] bg-[--color-surface]">
+		<header className="flex items-center gap-3 px-4 h-full border-b border-border bg-surface">
 			{/* Left panel toggle */}
 			<button
 				onClick={toggleLeftPanel}
 				className={cn(
-					"flex items-center justify-center w-8 h-8 rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-[--color-accent] shrink-0",
+					"flex items-center justify-center w-8 h-8 p-0 gap-0 leading-none rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-accent shrink-0 [&>svg]:shrink-0",
 					leftPanelOpen
-						? "bg-[--color-surface-2] text-[--color-accent] shadow-sm"
-						: "text-[--color-text-muted] hover:text-[--color-text] hover:bg-[--color-surface-2]/50",
+						? "bg-surface-2 text-accent shadow-sm"
+						: "text-text-muted hover:text-text hover:bg-surface-2/50",
 				)}
 				title={leftPanelOpen ? "Close chat" : "Open chat"}
 			>
-				<MessageSquare size={16} />
+				<MessageCircle size={16} strokeWidth={2.5} />
 			</button>
 
 			{/* Logo */}
 			<div className="flex items-center gap-2 shrink-0">
-				<GitBranch size={16} className="text-[--color-accent]" />
-				<span className="font-semibold text-sm text-[--color-text]">CODEX</span>
+				<GitBranch size={16} className="text-accent" />
+				<span className="font-semibold text-sm text-text">CODEX</span>
 			</div>
 
 			<div className="flex-1" />

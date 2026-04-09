@@ -37,17 +37,17 @@ export function StatCard({ label, value, storageKey, className }: StatCardProps)
 				className,
 			)}
 		>
-			<span className="text-[10px] text-[--color-text-muted] shrink-0">{label}</span>
+			<span className="text-[10px] text-[var(--color-text-muted)] shrink-0">{label}</span>
 			{visible ? (
-				<span className="text-[11px] font-mono text-[--color-text] flex-1 truncate">
+				<span className="text-[11px] font-mono text-[var(--color-text)] flex-1 truncate">
 					{value}
 				</span>
 			) : (
-				<span className="text-[10px] text-[--color-text-muted] flex-1 italic">hidden</span>
+				<span className="text-[10px] text-[var(--color-text-muted)] flex-1 italic">hidden</span>
 			)}
 			<button
 				onClick={toggle}
-				className="shrink-0 text-[--color-text-muted] hover:text-[--color-text] transition-colors focus:outline-none"
+				className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors focus:outline-none"
 				aria-label={visible ? "Hide" : "Show"}
 			>
 				{visible ? <EyeOff size={10} /> : <Eye size={10} />}
@@ -64,7 +64,7 @@ interface StatRowProps {
 /** Renders a horizontal row of StatCards. */
 export function StatRow({ stats, className }: StatRowProps) {
 	return (
-		<div className={cn("flex flex-wrap gap-1.5 px-4 py-2 border-t border-[--color-border]", className)}>
+		<div className={cn("flex flex-wrap gap-1.5 px-4 py-2 border-t border-[var(--color-border)]", className)}>
 			{stats.map((s) => (
 				<StatCard key={s.key} label={s.label} value={s.value} storageKey={s.key} />
 			))}
