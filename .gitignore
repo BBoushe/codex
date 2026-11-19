@@ -51,3 +51,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Nested git repos (test fixtures — created by setup-git.ts)
 packages/parser/fixtures/mini-app/.git
+# zustand fixture: clone locally, only the README is tracked
+packages/parser/fixtures/zustand/*
+!packages/parser/fixtures/zustand/README.md
