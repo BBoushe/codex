@@ -457,6 +457,11 @@ async function runSocialSearch(
 			(nameFilter.includes(".") || nameFilter.includes("/"));
 
 		// ── Developer query ──────────────────────────────────────────────────
+		// Two paths:
+		//   1. Direct match on developer name/email or file path (existing).
+		//   2. Entity name → DEFINED_IN → File → HAS_EXPERTISE → Developer
+		//      (handles "who should I ask about useShallow?" where nameFilter is
+		//      an entity identifier, not a file path or person name).
 		const devResult = await session.run(
 			`
 			MATCH (dev:Developer)-[exp:HAS_EXPERTISE]->(f:File)
@@ -468,8 +473,16 @@ async function runSocialSearch(
 			       exp.doaScore AS doaScore, exp.isFirstAuthor AS isFirstAuthor,
 			       exp.lastContribution AS lastContribution,
 			       f.filePath AS filePath
-			ORDER BY exp.doaScore DESC
-			LIMIT 50
+
+			UNION
+
+			MATCH (entity)-[:DEFINED_IN]->(f:File)<-[exp:HAS_EXPERTISE]-(dev:Developer)
+			WHERE $name <> ''
+			  AND toLower(entity.name) = toLower($name)
+			RETURN dev.name AS name, dev.email AS email,
+			       exp.doaScore AS doaScore, exp.isFirstAuthor AS isFirstAuthor,
+			       exp.lastContribution AS lastContribution,
+			       f.filePath AS filePath
 			`,
 			{ name: nameFilter },
 		);

@@ -57,6 +57,22 @@ function applyIntentGuards(query: string, intent: QueryIntent): QueryIntent {
 		};
 	}
 
+	// "Where is X used?" is ambiguous — DEFINED_IN only shows where X is defined,
+	// not where it is called/imported/rendered. Reroute to hybrid so vector search
+	// can surface all usage patterns across CALLS, IMPORTS, RENDERS, etc.
+	if (
+		intent.kind === "structural" &&
+		intent.spec.edge === "DEFINED_IN" &&
+		/\bused?\b/i.test(query)
+	) {
+		return {
+			kind: "hybrid",
+			subKind: "semantic",
+			topK: TOP_K_BY_SUB_KIND.semantic,
+			wasFallback: false,
+		};
+	}
+
 	return intent;
 }
 
@@ -83,11 +99,15 @@ There are three routing options:
    - "What does App render?" → structural (App is named)
    - "Where is formatDate defined?" → structural (formatDate is named)
    - "What files import utils.ts?" → structural (utils.ts is named)
+   - "What uses useShallow?" → structural: CALLS incoming to useShallow (code entities that call it)
    IMPORTANT: If the question DESCRIBES behavior without naming a specific entity, it is NOT structural. Examples:
    - "What function fetches blog posts?" → NOT structural (describes behavior, doesn't name a function)
    - "What component displays a list of posts?" → NOT structural (describes what it does)
    - "What validates email addresses?" → NOT structural (describes behavior)
    - "What custom hook manages user state?" → NOT structural (describes purpose)
+   IMPORTANT: "Where is X used?" is ambiguous — it could mean calls, imports, or renders. Use hybrid/semantic instead:
+   - "Where is useShallow used?" → hybrid/semantic (use vector search to find all usage patterns)
+   - "Where is fetchPosts used?" → hybrid/semantic (not just one edge type covers all usages)
    These belong in hybrid/semantic because CODEX needs to search for matching entities by meaning.
    Output a query spec describing which edge to traverse:
    {
