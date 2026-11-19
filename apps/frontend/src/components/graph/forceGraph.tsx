@@ -142,7 +142,10 @@ export function ForceGraph() {
 	const themeMode = useUiStore((s) => s.themeMode);
 	const leftPanelOpen = useUiStore((s) => s.leftPanelOpen);
 
-	// Track container dimensions
+	// Track container dimensions.
+	// Re-runs when leftPanelOpen changes (grid column transition) OR when
+	// subgraphData first arrives (component may have mounted with stale 1×1 dims).
+	const hasData = !!subgraphData;
 	useLayoutEffect(() => {
 		const host = containerRef.current;
 		if (!host) return;
@@ -155,10 +158,12 @@ export function ForceGraph() {
 			setDimensions({ width, height });
 		};
 
-		// Keep the canvas synced to grid/panel transitions and first paint.
+		// Measure immediately, after the next paint, and after grid transitions.
 		measure();
 		const raf = requestAnimationFrame(measure);
 		const transitionTimer = window.setTimeout(measure, 320);
+		// Extra remeasure at 400ms covers the 300ms grid CSS transition + margin.
+		const lateTimer = window.setTimeout(measure, 400);
 
 		const ro = new ResizeObserver((entries) => {
 			if (entries.length > 0) measure();
@@ -170,10 +175,11 @@ export function ForceGraph() {
 		return () => {
 			cancelAnimationFrame(raf);
 			window.clearTimeout(transitionTimer);
+			window.clearTimeout(lateTimer);
 			window.removeEventListener("resize", measure);
 			ro.disconnect();
 		};
-	}, [leftPanelOpen]);
+	}, [leftPanelOpen, hasData]);
 
 	const canvasBackground = (() => {
 		const container = containerRef.current;

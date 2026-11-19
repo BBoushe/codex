@@ -120,7 +120,7 @@ export function ChatPanel() {
 			className={cn(
 				"flex flex-col h-full border-r border-[var(--color-border)] bg-[var(--color-surface)]",
 				"transition-all duration-300 overflow-hidden min-h-0",
-				leftPanelOpen ? "w-96" : "w-0",
+				leftPanelOpen ? "w-full" : "w-0",
 			)}
 		>
 			{/* Header */}
